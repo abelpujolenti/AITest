@@ -1,0 +1,9 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+
+#pragma kernel EraseUnnecessaryTriangles
+
+[numthreads(8,8,8)]
+void EraseUnnecessaryTriangles (uint3 groupId : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID)
+{
+    
+}

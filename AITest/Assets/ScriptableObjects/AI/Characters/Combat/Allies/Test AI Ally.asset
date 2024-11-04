@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c205ed4a8dc4f22b59005f924dd887b, type: 3}
+  m_Name: Test AI Ally
+  m_EditorClassIdentifier: 
+  totalHealth: 10
+  flashTime: 0.75
+  flashColor: {r: 1, g: 0, b: 0, a: 0}
+  aiAttacks:
+  - {fileID: 11400000, guid: 82dcd35726da0e14fb08c4ffc1ef5ba5, type: 2}
+  basicAttackDamage: 0
+  basicStressDamage: 0
+  basicAttackMaximumRange: 0
+  moralWeight: 3

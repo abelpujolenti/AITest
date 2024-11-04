@@ -1,0 +1,66 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+
+#pragma kernel SplitFloorCeilVoxels
+
+struct Voxel
+{    
+    float3 position;
+    int isWalkable;
+    int isCeil;    
+};
+
+float _VoxelSize;
+
+float3 _GridDimensions;
+float3 _Pivot;
+
+StructuredBuffer<Voxel> _Voxels;
+RWStructuredBuffer<Voxel> _FloorVoxels;
+RWStructuredBuffer<Voxel> _CeilVoxels;
+
+StructuredBuffer<float3> _Vertices;
+StructuredBuffer<float3> _VerticesNormals;
+StructuredBuffer<int> _Triangles;
+
+[numthreads(8,8,8)]
+void SplitFloorCeilVoxels(uint3 groupId : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID)
+{
+    uint width = _GridDimensions.x * 8;
+    uint height = _GridDimensions.y * 8;
+    uint depth = _GridDimensions.z * 8;
+
+    uint x = groupId.x * 8 + groupThreadID.x;
+    uint y = groupId.y * 8 + groupThreadID.y;
+    uint z = groupId.z * 8 + groupThreadID.z;
+    
+    if (x >= width || y >= height || z >= depth)
+    {
+        return;
+    }        
+
+    int index = x * height * depth + y * depth + z;
+    
+    float3 voxelPosition = _Voxels[index].position;
+    
+    uint size;
+    uint stride;
+
+    _Triangles.GetDimensions(size, stride);
+    
+    for (int i = 0; i < size; i += 3)
+    {
+        float3 vertex0 = _Vertices[_Triangles[i]];
+        float3 vertex1 = _Vertices[_Triangles[i + 1]];
+        float3 vertex2 = _Vertices[_Triangles[i + 2]];        
+
+        //bool intersects =
+
+        /*if(intersects)
+        {
+            voxelGrid[id] = 1;
+            break;
+        }*/
+    
+        //_FloorVoxels[index] = _Voxels[index];
+    }
+}
