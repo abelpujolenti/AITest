@@ -4,6 +4,7 @@
     {
         ALLY, 
         ENEMY,
-        NPC
+        NPC,
+        ENUM_SIZE
     }
 }

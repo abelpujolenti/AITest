@@ -12,14 +12,14 @@ namespace AI.Combat.Enemy
         {
             AIEnemy otherEnemy = other.GetComponent<EnemyDetectionZone>().GetAIEnemy();
             
-            ECSCombatManager.Instance.OnEnemyJoinEnemy(_aiEnemy, otherEnemy);
+            CombatManager.Instance.OnEnemyJoinEnemy(_aiEnemy, otherEnemy);
         }
 
         private void OnTriggerExit(Collider other)
         {
             AIEnemy otherEnemy = other.GetComponent<EnemyDetectionZone>().GetAIEnemy();
             
-            ECSCombatManager.Instance.OnEnemySeparateFromEnemy(_aiEnemy, otherEnemy);
+            CombatManager.Instance.OnEnemySeparateFromEnemy(_aiEnemy, otherEnemy);
         }
 
         public AIEnemy GetAIEnemy()

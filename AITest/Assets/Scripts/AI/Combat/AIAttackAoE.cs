@@ -1,7 +1,6 @@
 ﻿using System;
 using Interfaces.AI.Combat;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace AI.Combat
 {

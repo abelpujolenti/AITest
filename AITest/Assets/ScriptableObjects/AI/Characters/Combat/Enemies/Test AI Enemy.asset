@@ -18,3 +18,4 @@ MonoBehaviour:
   aiAttacks:
   - {fileID: 11400000, guid: 3079695dce5be7e44a152ca6bbebdb4e, type: 2}
   threatLevel: 0.05
+  maximumStress: 10

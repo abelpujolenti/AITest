@@ -1,18 +1,19 @@
-﻿using System;
+using System;
 using AI.Combat.ScriptableObjects;
 using Interfaces.AI.UBS.Ally;
+using Interfaces.AI.UBS.BaseInterfaces;
 using UnityEngine;
 
 namespace AI.Combat.Ally
 {
-    public static class AIAllyUtilityFunction
+    public class AIAllyUtilityFunction : IGetBestAction<AIAllyAction, AIAllyContext>
     {
-        public static AIAllyAction GetBestAction(AIAllyContext context)
+        public AIAllyAction GetBestAction(AIAllyContext context)
         {
             AICombatAgentAction<AIAllyAction>[] actions = new[]
             {
                 new AICombatAgentAction<AIAllyAction>(AIAllyAction.FOLLOW_PLAYER),
-                new AICombatAgentAction<AIAllyAction>(AIAllyAction.LOOK_FOR_RIVAL),
+                new AICombatAgentAction<AIAllyAction>(AIAllyAction.CHOOSE_NEW_RIVAL),
                 new AICombatAgentAction<AIAllyAction>(AIAllyAction.GET_CLOSER_TO_RIVAL),
                 new AICombatAgentAction<AIAllyAction>(AIAllyAction.ATTACK),
                 new AICombatAgentAction<AIAllyAction>(AIAllyAction.FLEE),
@@ -21,7 +22,7 @@ namespace AI.Combat.Ally
             };
 
             actions[0].utilityScore = CalculateFollowPlayerUtility(context);
-            actions[1].utilityScore = CalculateLookForRivalUtility(context);
+            actions[1].utilityScore = CalculateChooseNewRivalUtility(context);
             actions[2].utilityScore = CalculateGetCloserToRivalUtility(context);
             actions[3].utilityScore = CalculateAttackUtility(context);
             actions[4].utilityScore = CalculateFleeUtility(context);
@@ -49,7 +50,7 @@ namespace AI.Combat.Ally
         }
         
         //RETHINK
-        private static float CalculateLookForRivalUtility(IAllyLookForRivalUtility allyLookForRivalUtility)
+        private static float CalculateChooseNewRivalUtility(IAllyChooseNewRivalUtility allyChooseNewRivalUtility)
         {
             //THINGS TO TAKE CARE
             
@@ -63,18 +64,21 @@ namespace AI.Combat.Ally
             
             //2.1 TRUE | RETURN 0.6
             //2.1 FALSE | RETURN 0 
-            
-            if (!allyLookForRivalUtility.IsFighting())
+
+            if (!allyChooseNewRivalUtility.HasATarget())
             {
-                return 0.7f;
+                return 0.9f;
             }
             
-            if (allyLookForRivalUtility.IsSeeingARival())
+            if (allyChooseNewRivalUtility.GetMoralWeight() > allyChooseNewRivalUtility.GetThreatWeightOfTarget())
             {
-                if (allyLookForRivalUtility.GetMoralWeight() < allyLookForRivalUtility.GetThreatWeightOfTarget())
-                {
-                    return 0.6f;
-                }
+                return 0;
+            }
+            
+            //THIS MUST BE SEEING A LONELY RIVAL
+            if (allyChooseNewRivalUtility.IsSeeingARival())
+            {
+                return 0.4f;
             }
             
             return 0;
@@ -82,9 +86,19 @@ namespace AI.Combat.Ally
 
         private static float CalculateGetCloserToRivalUtility(IAllyGetCloserToRivalUtility allyGetCloserToRivalUtility)
         {
-            if (allyGetCloserToRivalUtility.GetBasicAttackMaximumRange() > allyGetCloserToRivalUtility.GetDistanceToEnemy())
+            if (!allyGetCloserToRivalUtility.HasATarget() || allyGetCloserToRivalUtility.IsAttacking())
             {
-                return 0.5f;
+                return 0;
+            }
+
+            if (allyGetCloserToRivalUtility.GetMoralWeight() < allyGetCloserToRivalUtility.GetThreatWeightOfTarget())
+            {
+                return 0;
+            }
+            
+            if (allyGetCloserToRivalUtility.GetBasicAttackMaximumRange() < allyGetCloserToRivalUtility.GetDistanceToRival())
+            {
+                return 0.9f;
             }
             
             return 0;
@@ -113,13 +127,8 @@ namespace AI.Combat.Ally
                 return 0;
             }
 
-            Vector3 ownPosition = allyAttackUtility.GetAgentTransform().position;
-            Vector3 rivalPosition = allyAttackUtility.GetRivalTransform().position;
-
-            float distanceToEnemy = (rivalPosition - ownPosition).magnitude;
-
-            if (allyAttackUtility.GetBasicAttackMaximumRange() < distanceToEnemy &&
-                Vector3.Angle(allyAttackUtility.GetAgentTransform().forward, allyAttackUtility.GetRivalTransform().position) < 15f)
+            if (allyAttackUtility.GetBasicAttackMaximumRange() < allyAttackUtility.GetDistanceToRival() &&
+                Vector3.Angle(allyAttackUtility.GetAgentTransform().forward, allyAttackUtility.GetVectorToRival()) < 15f)
             {
                 return 0;
             }
@@ -134,7 +143,8 @@ namespace AI.Combat.Ally
                 return 0.9f;
             }
 
-            if (allyAttackUtility.GetBasicStressDamage() >= allyAttackUtility.GetRivalStressRemainingToStun())
+            if (allyAttackUtility.GetBasicStressDamage() >= 
+                allyAttackUtility.GetRivalMaximumStress() - allyAttackUtility.GetRivalCurrentStress())
             {
                 return 0.5f;
             }
@@ -154,7 +164,7 @@ namespace AI.Combat.Ally
             //2 TRUE | RETURN 0.8
             //2 FALSE | RETURN 0
 
-            if (!allyFleeUtility.IsSeeingARival())
+            if (!allyFleeUtility.HasATarget())
             {
                 return 0;
             }

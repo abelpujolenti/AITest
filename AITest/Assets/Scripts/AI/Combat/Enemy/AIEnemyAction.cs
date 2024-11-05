@@ -2,7 +2,8 @@
 {
     public enum AIEnemyAction : uint
     {
-        LOOK_FOR_RIVAL,
+        PATROL,
+        CHOOSE_NEW_RIVAL,
         GET_CLOSER_TO_RIVAL,
         ATTACK,
         FLEE,

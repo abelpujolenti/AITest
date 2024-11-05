@@ -1,23 +1,30 @@
 ﻿using Interfaces.AI.Combat;
-using Interfaces.AI.UBS.BaseInterfaces;
+using Interfaces.AI.UBS.BaseInterfaces.Get;
+using Interfaces.AI.UBS.BaseInterfaces.Property;
 using UnityEngine;
 
 namespace AI.Combat.ScriptableObjects
 {
-    public abstract class AICombatAgentContext : ITotalHealth, IHealth, IIsSeeingARival, IHasATarget, IIsFighting, IRivalTransform, 
-        IAgentTransform, IStatWeight
+    public abstract class AICombatAgentContext : IGetTotalHealth, ILastActionIndex, IHealth, IRivalIndex, IDistanceToRival, ISeeingARival, 
+        ITarget, IFighting, IAttacking, IVectorToRival, IRivalTransform, IGetAgentTransform, IStatWeight
     {
-        public uint lastActionIndex = 10;
+        private uint lastActionIndex = 10;
         
         private uint totalHealth;
-        public uint health;
+        private uint health;
+        private uint rivalIndex;
 
-        public bool isSeeingARival;
-        public bool hasATarget;
-        public bool isFighting;
+        private float distanceToRival;
 
-        public Transform agentTransform;
-        public Transform rivalTransform;
+        private bool isSeeingARival;
+        private bool hasATarget;
+        private bool isFighting;
+        private bool isAttacking;
+
+        private Vector3 vectorToRival;
+
+        private Transform agentTransform;
+        private Transform rivalTransform;
 
         protected AICombatAgentContext(uint totalHealth, Transform agentTransform)
         {
@@ -26,9 +33,24 @@ namespace AI.Combat.ScriptableObjects
             this.agentTransform = agentTransform;
         }
 
+        public void SetLastActionIndex(uint lastActionIndex)
+        {
+            this.lastActionIndex = lastActionIndex;
+        }
+
+        public uint GetLastActionIndex()
+        {
+            return lastActionIndex;
+        }
+
         public uint GetTotalHealth()
         {
             return totalHealth;
+        }
+
+        public void SetHealth(uint health)
+        {
+            this.health = health;
         }
 
         public uint GetHealth()
@@ -36,9 +58,39 @@ namespace AI.Combat.ScriptableObjects
             return health;
         }
 
+        public void SetRivalIndex(uint rivalIndex)
+        {
+            this.rivalIndex = rivalIndex;
+        }
+
+        public uint GetRivalIndex()
+        {
+            return rivalIndex;
+        }
+
+        public void SetDistanceToRival(float distanceToRival)
+        {
+            this.distanceToRival = distanceToRival;
+        }
+
+        public float GetDistanceToRival()
+        {
+            return distanceToRival;
+        }
+
+        public void SetIsSeeingARival(bool isSeeingARival)
+        {
+            this.isSeeingARival = isSeeingARival;
+        }
+
         public bool IsSeeingARival()
         {
             return isSeeingARival;
+        }
+
+        public void SetHasATarget(bool hasATarget)
+        {
+            this.hasATarget = hasATarget;
         }
 
         public bool HasATarget()
@@ -46,9 +98,41 @@ namespace AI.Combat.ScriptableObjects
             return hasATarget;
         }
 
+        public void SetIsFighting(bool isFighting)
+        {
+            this.isFighting = isFighting;
+        }
+
         public bool IsFighting()
         {
             return isFighting;
+        }
+
+        public void SetIsAttacking(bool isAttacking)
+        {
+            this.isAttacking = isAttacking;
+        }
+
+        public bool IsAttacking()
+        {
+            return isAttacking;
+        }
+
+        public void SetVectorToRival(Vector3 vectorToRival)
+        {
+            this.vectorToRival = vectorToRival;
+            SetDistanceToRival(this.vectorToRival.magnitude);
+        }
+
+        public Vector3 GetVectorToRival()
+        {
+            return vectorToRival;
+        }
+
+        public void SetRivalTransform(Transform rivalTransform)
+        {
+            this.rivalTransform = rivalTransform;
+            SetVectorToRival(this.rivalTransform.position - agentTransform.position);
         }
 
         public Transform GetRivalTransform()

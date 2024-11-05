@@ -1,4 +1,7 @@
-﻿using ECS.Components.AI.Combat;
+﻿using System;
+using AI.Combat.ScriptableObjects;
+using ECS.Components.AI.Combat;
+using ECS.Entities.AI.Combat;
 using UnityEngine;
 
 namespace AI.Combat
@@ -47,6 +50,18 @@ namespace AI.Combat
             _coneAttackComponent = coneAttackComponent;
             
             Rotate();
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            //TODO
+            AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
+        }
+
+        private void OnTriggerExit(Collider other)
+        {
+            //TODO
+            AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
         }
     }
 }

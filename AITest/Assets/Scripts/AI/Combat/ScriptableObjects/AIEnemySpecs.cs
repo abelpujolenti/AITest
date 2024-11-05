@@ -8,5 +8,6 @@ namespace AI.Combat.ScriptableObjects
         public readonly AIAgentType aiAgentType = AIAgentType.ENEMY;
 
         public float threatLevel;
+        public float maximumStress;
     }
 }

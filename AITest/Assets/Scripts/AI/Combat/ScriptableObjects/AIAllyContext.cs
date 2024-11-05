@@ -3,28 +3,28 @@ using UnityEngine;
 
 namespace AI.Combat.ScriptableObjects
 {
-    public class AIAllyContext : AICombatAgentContext, IAllyFollowPlayerUtility, IAllyLookForRivalUtility, 
+    public class AIAllyContext : AICombatAgentContext, IAllyFollowPlayerUtility, IAllyChooseNewRivalUtility,
         IAllyGetCloserToRivalUtility, IAllyAttackUtility, IAllyFleeUtility, IAllyDodgeAttackUtility, IAllyHelpAllyUtility 
     {
         private uint basicAttackDamage;
-        public uint oncomingAttackDamage;
-        public uint enemyHealth;
-        public uint threatGroupOfTarget = 0;
+        private uint oncomingAttackDamage;
+        private uint enemyHealth;
+        private uint threatGroupOfTarget = 0;
         
         private float basicStressDamage;
         private float basicAttackMaximumRange;
-        public float distanceToEnemy;
-        public float moralWeight;
-        public float threatWeightOfTarget = 0;
-        public float enemyStressRemainingToStun;
+        private float moralWeight;
+        private float threatWeightOfTarget = 0;
+        private float enemyMaximumStress;
+        private float enemyCurrentStress;
         
-        public bool isUnderThreat;
-        public bool isUnderAttack;
-        public bool isAnotherAllyUnderThreat;
-        public bool isAirborne;
-        public bool isInRetreatState;
-        public bool isInAttackState;
-        public bool isInFleeState;
+        private bool isUnderThreat;
+        private bool isUnderAttack;
+        private bool isAnotherAllyUnderThreat;
+        private bool isAirborne;
+        private bool wasRetreatOrderUsed;
+        private bool wasAttackOrderUsed;
+        private bool wasFleeOrderUsed;
 
         public AIAllyContext(uint totalHealth, Transform agentTransform, float basicAttackMaximumRange, uint basicAttackDamage, 
             float basicStressDamage, float moralWeight) : base(totalHealth, agentTransform)
@@ -40,9 +40,24 @@ namespace AI.Combat.ScriptableObjects
             return basicAttackDamage;
         }
 
+        public void SetRivalHealth(uint rivalHealth)
+        {
+            enemyHealth = rivalHealth;
+        }
+
         public uint GetRivalHealth()
         {
             return enemyHealth;
+        }
+
+        public void SetThreatGroupOfTarget(uint threatGroupOfTarget)
+        {
+            this.threatGroupOfTarget = threatGroupOfTarget;
+        }
+
+        public uint GetThreatGroupOfTarget()
+        {
+            return threatGroupOfTarget;
         }
 
         public float GetBasicStressDamage()
@@ -55,9 +70,9 @@ namespace AI.Combat.ScriptableObjects
             return basicAttackMaximumRange;
         }
 
-        public float GetDistanceToEnemy()
+        public void SetMoralWeight(float moralWeight)
         {
-            return distanceToEnemy;
+            this.moralWeight = moralWeight;
         }
 
         public float GetMoralWeight()
@@ -65,14 +80,39 @@ namespace AI.Combat.ScriptableObjects
             return moralWeight;
         }
 
+        public void SetThreatWeightOfTarget(float threatWeightOfTarget)
+        {
+            this.threatWeightOfTarget = threatWeightOfTarget;
+        }
+
         public float GetThreatWeightOfTarget()
         {
             return threatWeightOfTarget;
         }
 
-        public float GetRivalStressRemainingToStun()
+        public void SetRivalMaximumStress(float rivalMaximumStress)
         {
-            return enemyStressRemainingToStun;
+            enemyMaximumStress = rivalMaximumStress;
+        }
+
+        public float GetRivalMaximumStress()
+        {
+            return enemyMaximumStress;
+        }
+
+        public void SetRivalCurrentStress(float rivalCurrentStress)
+        {
+            enemyCurrentStress = rivalCurrentStress;
+        }
+
+        public float GetRivalCurrentStress()
+        {
+            return enemyCurrentStress;
+        }
+
+        public void SetIsUnderThreat(bool isUnderThreat)
+        {
+            this.isUnderThreat = isUnderThreat;
         }
 
         public bool IsUnderThreat()
@@ -80,9 +120,19 @@ namespace AI.Combat.ScriptableObjects
             return isUnderThreat;
         }
 
+        public void SetIsUnderAttack(bool isUnderAttack)
+        {
+            this.isUnderAttack = isUnderAttack;
+        }
+
         public bool IsUnderAttack()
         {
             return isUnderAttack;
+        }
+
+        public void SetOncomingAttackDamage(uint oncomingAttackDamage)
+        {
+            this.oncomingAttackDamage = oncomingAttackDamage;
         }
 
         public uint GetOncomingAttackDamage()
@@ -90,9 +140,19 @@ namespace AI.Combat.ScriptableObjects
             return oncomingAttackDamage;
         }
 
+        public void SetIsAnotherAllyUnderThreat(bool isAnotherAllyUnderThreat)
+        {
+            this.isAnotherAllyUnderThreat = isAnotherAllyUnderThreat;
+        }
+
         public bool IsAnotherAllyUnderThreat()
         {
             return isAnotherAllyUnderThreat;
+        }
+
+        public void SetIsAirborne(bool isAirborne)
+        {
+            this.isAirborne = isAirborne;
         }
 
         public bool IsAirborne()
@@ -100,19 +160,34 @@ namespace AI.Combat.ScriptableObjects
             return isAirborne;
         }
 
+        public void SetIsInRetreatState(bool isInRetreatState)
+        {
+            wasRetreatOrderUsed = isInRetreatState;
+        }
+
         public bool IsInRetreatState()
         {
-            return isInRetreatState;
+            return wasRetreatOrderUsed;
+        }
+
+        public void SetIsInAttackState(bool isInAttackState)
+        {
+            wasAttackOrderUsed = isInAttackState;
         }
 
         public bool IsInAttackState()
         {
-            return isInAttackState;
+            return wasAttackOrderUsed;
+        }
+
+        public void SetIsInFleeState(bool isInFleeState)
+        {
+            wasFleeOrderUsed = isInFleeState;
         }
 
         public bool IsInFleeState()
         {
-            return isInFleeState;
+            return wasFleeOrderUsed;
         }
 
         public override float GetWeight()

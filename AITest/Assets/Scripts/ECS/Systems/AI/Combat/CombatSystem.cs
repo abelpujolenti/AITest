@@ -1,14 +1,8 @@
-﻿using System.Collections.Generic;
-using ECS.Components.AI.Combat;
-using ECS.Entities.AI.Combat;
-using Managers;
-using UnityEngine;
-
-namespace ECS.Systems.AI.Combat
+﻿namespace ECS.Systems.AI.Combat
 {
     public class CombatSystem
     {
-        public void UpdateCombatState(Dictionary<AICombatAgentEntity, AICombatAgentEntity> aiCombatAgentEntities)
+        /*public void UpdateCombatState(Dictionary<AICombatAgentEntity, AICombatAgentEntity> aiCombatAgentEntities)
         {
             foreach (KeyValuePair<AICombatAgentEntity, AICombatAgentEntity> attackerAndTarget in aiCombatAgentEntities)
             {
@@ -51,10 +45,10 @@ namespace ECS.Systems.AI.Combat
                     
                     attackComponent.StartCastTime();
                     
-                    ECSCombatManager.Instance.StartCastingAnAttack(attackerTransform, attackComponent);
+                    CombatManager.Instance.StartCastingAnAttack(attackerTransform, attackComponent);
                     
                     //ERASE IT WHEN WE'LL USE COLLIDERS
-                    /*ApplyDamage(ref attackerAndTarget.Value.GetHealthComponent(), new DamageComponent(attackComponent.GetDamage()));
+                    ApplyDamage(ref attackerAndTarget.Value.GetHealthComponent(), new DamageComponent(attackComponent.GetDamage()));
                     
                     Debug.Log(attackerAndTarget.Key.name + " attacked");
 
@@ -62,10 +56,10 @@ namespace ECS.Systems.AI.Combat
                     {
                         Debug.Log(attackerAndTarget.Value.name + " dead");
                         ECSCombatManager.Instance.RequestRival(attackerAndTarget.Key);
-                    }*/
-                    //
+                    }
+                    
                 }
             }
-        }
+        }*/
     }
 }

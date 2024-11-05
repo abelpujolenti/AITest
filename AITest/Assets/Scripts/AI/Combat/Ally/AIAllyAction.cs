@@ -3,7 +3,7 @@
     public enum AIAllyAction : uint
     {
         FOLLOW_PLAYER,
-        LOOK_FOR_RIVAL,
+        CHOOSE_NEW_RIVAL,
         GET_CLOSER_TO_RIVAL,
         ATTACK,
         FLEE,

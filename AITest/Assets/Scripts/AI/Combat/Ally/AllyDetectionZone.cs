@@ -10,12 +10,12 @@ namespace AI.Combat.Ally
 
         private void OnTriggerEnter(Collider other)
         {
-            ECSCombatManager.Instance.OnAllyJoinAlly(ref _aiAlly.GetMoralComponent());
+            CombatManager.Instance.OnAllyJoinAlly(ref _aiAlly.GetMoralComponent());
         }
 
         private void OnTriggerExit(Collider other)
         {
-            ECSCombatManager.Instance.OnAllySeparateFromAlly(ref _aiAlly.GetMoralComponent());
+            CombatManager.Instance.OnAllySeparateFromAlly(ref _aiAlly.GetMoralComponent());
         }
     }
 }

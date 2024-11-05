@@ -235,7 +235,7 @@ GameObject:
   - component: {fileID: 240185847}
   - component: {fileID: 240185846}
   m_Layer: 0
-  m_Name: ECSCombatManager
+  m_Name: CombatManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

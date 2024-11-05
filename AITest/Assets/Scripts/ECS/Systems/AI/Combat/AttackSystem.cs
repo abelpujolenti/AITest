@@ -9,7 +9,7 @@ namespace ECS.Systems.AI.Combat
     {
         public IEnumerator StartCastTime(AttackComponent attackComponent, AIAttackCollider attackCollider)
         {
-            ECSCombatManager.Instance.PutAttackOnCooldown(attackComponent);
+            CombatManager.Instance.PutAttackOnCooldown(attackComponent);
             while (attackComponent.IsCasting())
             {
                 attackComponent.DecreaseCurrentCastTime();

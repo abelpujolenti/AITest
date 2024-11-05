@@ -1,4 +1,5 @@
 ﻿using System;
+using AI.Combat.ScriptableObjects;
 using ECS.Components.AI.Combat;
 using ECS.Entities.AI.Combat;
 using UnityEngine;
@@ -66,12 +67,14 @@ namespace AI.Combat
 
         private void OnTriggerEnter(Collider other)
         {
-            AICombatAgentEntity aiCombatAgent = other.GetComponent<AICombatAgentEntity>();
+            //TODO
+            AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
         }
 
         private void OnTriggerExit(Collider other)
         {
-            AICombatAgentEntity aiCombatAgent = other.GetComponent<AICombatAgentEntity>();
+            //TODO
+            AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
         }
     }
 }

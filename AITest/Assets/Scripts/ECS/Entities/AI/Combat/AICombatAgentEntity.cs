@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using AI;
 using AI.Combat;
@@ -9,24 +10,35 @@ using UnityEngine;
 
 namespace ECS.Entities.AI.Combat
 {
-    public abstract class AICombatAgentEntity : NavMeshAgentEntity
+    public abstract class AICombatAgentEntity<TContext> : NavMeshAgentEntity where TContext : AICombatAgentContext
     {
+        protected uint _combatAgentInstanceID;
+
+        protected List<uint> _visibleRivals = new List<uint>();
+        
         private List<AttackComponent> _attackComponents = new List<AttackComponent>();
 
         protected DamageFeedbackComponent _damageFeedbackComponent;
 
         protected DefeatComponent _defeatComponent;
 
-        protected AICombatAgentContext _aiCombatAgentContext;
-
-        protected IStatWeight _statWeightComponent;
-
         protected IGroup _groupComponent;
 
         [SerializeField] private float _radius;
 
+        private void Update()
+        {
+            UpdateVisibleRivals();
+
+            UpdateVectorToRival();
+            
+            CalculateBestAction();
+        }
+
         protected void SetupCombatComponents(AICombatAgentSpecs aiCombatAgentSpecs)
         {
+            _combatAgentInstanceID = (uint)gameObject.GetInstanceID();
+            
             _damageFeedbackComponent = new DamageFeedbackComponent(GetComponent<MeshRenderer>(), 
                 aiCombatAgentSpecs.flashTime, aiCombatAgentSpecs.flashColor);
             
@@ -64,21 +76,46 @@ namespace ECS.Entities.AI.Combat
             _attackComponents.Add(new ConeAttackComponent(aiAttack, aiAttack.attackAoE));
         }
 
-        public abstract AIAgentType GetAIAgentType();
+        protected abstract void UpdateVisibleRivals();
+        protected abstract void CalculateBestAction();
+        
+        public abstract void Attack(uint attackIndex); 
+        public abstract void OnReceiveDamage(DamageComponent damageComponent);
 
-        public ref AICombatAgentContext GetContext()
+        public abstract AIAgentType GetAIAgentType();
+        
+        public abstract TContext GetContext();
+
+        public abstract void SetLastActionIndex(uint lastActionIndex);
+        public abstract void SetHealth(uint health);
+        public abstract void SetRivalIndex(uint rivalIndex);
+        
+        public abstract void SetDistanceToRival(float rivalDistance);
+        
+        public abstract void SetIsSeeingARival(bool isSeeingARival);
+        public abstract void SetHasATarget(bool hasATarget);
+        public abstract void SetIsFighting(bool isFighting);
+        public abstract void SetIsAttacking(bool isAttacking);
+
+        public abstract void SetVectorToRival(Vector3 vectorToRival);
+
+        public abstract void SetRivalTransform(Transform rivalTransform);
+
+        public abstract IStatWeight GetStatWeightComponent();
+
+        public uint GetCombatAgentInstance()
         {
-            return ref _aiCombatAgentContext;
+            return _combatAgentInstanceID;
+        }
+
+        public List<uint> GetVisibleRivals()
+        {
+            return _visibleRivals;
         }
 
         public List<AttackComponent> GetAttackComponents()
         {
             return _attackComponents;
-        }
-
-        public IStatWeight GetStatWeightComponent()
-        {
-            return _statWeightComponent;
         }
 
         public IGroup GetGroupComponent()
@@ -89,6 +126,20 @@ namespace ECS.Entities.AI.Combat
         public float GetRadius()
         {
             return _radius;
+        }
+
+        private void UpdateVectorToRival()
+        {
+            TContext context = GetContext();
+
+            if (!context.HasATarget())
+            {
+                return;
+            }
+
+            Vector3 rivalPosition = context.GetRivalTransform().position;
+            
+            context.SetVectorToRival(rivalPosition - transform.position);
         }
 
         public void DebugMessage(string damage,  string attackerName)

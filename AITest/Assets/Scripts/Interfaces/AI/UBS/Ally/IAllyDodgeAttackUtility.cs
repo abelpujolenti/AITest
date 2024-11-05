@@ -1,8 +1,9 @@
-﻿using Interfaces.AI.UBS.BaseInterfaces;
+﻿using Interfaces.AI.UBS.BaseInterfaces.Get;
+using Interfaces.AI.UBS.BaseInterfaces.Property;
 
 namespace Interfaces.AI.UBS.Ally
 {
-    public interface IAllyDodgeAttackUtility : IUnderAttack, IHealth, ITotalHealth, IBasicAttackDamage, 
+    public interface IAllyDodgeAttackUtility : IUnderAttack, IHealth, IGetTotalHealth, IGetBasicAttackDamage, 
         IOncomingAttackDamage, IRivalHealth
     {}
 }

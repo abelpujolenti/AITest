@@ -39,11 +39,5 @@ namespace Managers
 
         #endregion
 
-        #region CombatEvents
-
-        public static Action<int> ReceiveDamage;
-
-        #endregion
-
     }
 }
