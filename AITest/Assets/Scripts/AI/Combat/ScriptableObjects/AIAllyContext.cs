@@ -1,198 +1,231 @@
-﻿using Interfaces.AI.UBS.Ally;
+﻿using System.Collections.Generic;
+using Interfaces.AI.UBS.Ally;
 using UnityEngine;
 
 namespace AI.Combat.ScriptableObjects
 {
     public class AIAllyContext : AICombatAgentContext, IAllyFollowPlayerUtility, IAllyChooseNewRivalUtility,
-        IAllyGetCloserToRivalUtility, IAllyAttackUtility, IAllyFleeUtility, IAllyDodgeAttackUtility, IAllyHelpAllyUtility 
+        IAllyGetCloserToRivalUtility, IAllyAttackUtility, IAllyFleeUtility, IAllyDodgeAttackUtility, IAllyHelpAllyUtility
     {
-        private uint basicAttackDamage;
-        private uint oncomingAttackDamage;
-        private uint enemyHealth;
-        private uint threatGroupOfTarget = 0;
+        private uint _basicAttackDamage;
+        private uint _oncomingAttackDamage;
+        private uint _enemyHealth;
+        private uint _threatGroupOfTarget = 0;
         
-        private float basicStressDamage;
-        private float basicAttackMaximumRange;
-        private float moralWeight;
-        private float threatWeightOfTarget = 0;
-        private float enemyMaximumStress;
-        private float enemyCurrentStress;
+        private float _basicStressDamage;
+        private float _basicAttackMaximumRange;
+        private float _moralWeight;
+        private float _radiusOfAlert;
+        private float _threatWeightOfTarget = 0;
+        private float _enemyMaximumStress;
+        private float _enemyCurrentStress;
         
-        private bool isUnderThreat;
-        private bool isUnderAttack;
-        private bool isAnotherAllyUnderThreat;
-        private bool isAirborne;
-        private bool wasRetreatOrderUsed;
-        private bool wasAttackOrderUsed;
-        private bool wasFleeOrderUsed;
+        private bool _isUnderThreat;
+        private bool _isUnderAttack;
+        private bool _isAnotherAllyUnderThreat;
+        private bool _isAirborne;
+        private bool _wasRetreatOrderUsed;
+        private bool _wasAttackOrderUsed;
+        private bool _wasFleeOrderUsed;
 
-        public AIAllyContext(uint totalHealth, Transform agentTransform, float basicAttackMaximumRange, uint basicAttackDamage, 
-            float basicStressDamage, float moralWeight) : base(totalHealth, agentTransform)
+        private List<float> _distancesToThreatGroupsThatThreatMe;
+        private uint[] _threatGroupsThatFightAllies;
+
+        public AIAllyContext(uint totalHealth, float radius, float sightMaximumDistance, Transform agentTransform, 
+            float basicAttackMaximumRange, uint basicAttackDamage, float basicStressDamage, float moralWeight, 
+            float radiusOfAlert) : 
+            base(totalHealth, radius, sightMaximumDistance, agentTransform)
         {
-            this.basicAttackMaximumRange = basicAttackMaximumRange;
-            this.basicAttackDamage = basicAttackDamage;
-            this.basicStressDamage = basicStressDamage;
-            this.moralWeight = moralWeight;
+            _basicAttackMaximumRange = basicAttackMaximumRange;
+            _basicAttackDamage = basicAttackDamage;
+            _basicStressDamage = basicStressDamage;
+            _moralWeight = moralWeight;
+            _radiusOfAlert = radiusOfAlert;
         }
 
         public uint GetBasicAttackDamage()
         {
-            return basicAttackDamage;
+            return _basicAttackDamage;
         }
 
         public void SetRivalHealth(uint rivalHealth)
         {
-            enemyHealth = rivalHealth;
+            _enemyHealth = rivalHealth;
         }
 
         public uint GetRivalHealth()
         {
-            return enemyHealth;
+            return _enemyHealth;
         }
 
         public void SetThreatGroupOfTarget(uint threatGroupOfTarget)
         {
-            this.threatGroupOfTarget = threatGroupOfTarget;
+            _threatGroupOfTarget = threatGroupOfTarget;
         }
 
         public uint GetThreatGroupOfTarget()
         {
-            return threatGroupOfTarget;
+            return _threatGroupOfTarget;
         }
 
         public float GetBasicStressDamage()
         {
-            return basicStressDamage;
+            return _basicStressDamage;
         }
 
         public float GetBasicAttackMaximumRange()
         {
-            return basicAttackMaximumRange;
+            return _basicAttackMaximumRange;
         }
 
         public void SetMoralWeight(float moralWeight)
         {
-            this.moralWeight = moralWeight;
+            _moralWeight = moralWeight;
         }
 
         public float GetMoralWeight()
         {
-            return moralWeight;
+            return _moralWeight;
+        }
+
+        public float GetRadiusOfAlert()
+        {
+            return _radiusOfAlert;
         }
 
         public void SetThreatWeightOfTarget(float threatWeightOfTarget)
         {
-            this.threatWeightOfTarget = threatWeightOfTarget;
+            _threatWeightOfTarget = threatWeightOfTarget;
         }
 
         public float GetThreatWeightOfTarget()
         {
-            return threatWeightOfTarget;
+            return _threatWeightOfTarget;
         }
 
         public void SetRivalMaximumStress(float rivalMaximumStress)
         {
-            enemyMaximumStress = rivalMaximumStress;
+            _enemyMaximumStress = rivalMaximumStress;
         }
 
         public float GetRivalMaximumStress()
         {
-            return enemyMaximumStress;
+            return _enemyMaximumStress;
         }
 
         public void SetRivalCurrentStress(float rivalCurrentStress)
         {
-            enemyCurrentStress = rivalCurrentStress;
+            _enemyCurrentStress = rivalCurrentStress;
         }
 
         public float GetRivalCurrentStress()
         {
-            return enemyCurrentStress;
+            return _enemyCurrentStress;
         }
 
         public void SetIsUnderThreat(bool isUnderThreat)
         {
-            this.isUnderThreat = isUnderThreat;
+            _isUnderThreat = isUnderThreat;
         }
 
         public bool IsUnderThreat()
         {
-            return isUnderThreat;
+            return _isUnderThreat;
         }
 
         public void SetIsUnderAttack(bool isUnderAttack)
         {
-            this.isUnderAttack = isUnderAttack;
+            _isUnderAttack = isUnderAttack;
         }
 
         public bool IsUnderAttack()
         {
-            return isUnderAttack;
+            return _isUnderAttack;
         }
 
         public void SetOncomingAttackDamage(uint oncomingAttackDamage)
         {
-            this.oncomingAttackDamage = oncomingAttackDamage;
+            _oncomingAttackDamage = oncomingAttackDamage;
         }
 
         public uint GetOncomingAttackDamage()
         {
-            return oncomingAttackDamage;
+            return _oncomingAttackDamage;
         }
 
         public void SetIsAnotherAllyUnderThreat(bool isAnotherAllyUnderThreat)
         {
-            this.isAnotherAllyUnderThreat = isAnotherAllyUnderThreat;
+            _isAnotherAllyUnderThreat = isAnotherAllyUnderThreat;
         }
 
         public bool IsAnotherAllyUnderThreat()
         {
-            return isAnotherAllyUnderThreat;
+            return _isAnotherAllyUnderThreat;
         }
 
         public void SetIsAirborne(bool isAirborne)
         {
-            this.isAirborne = isAirborne;
+            _isAirborne = isAirborne;
         }
 
         public bool IsAirborne()
         {
-            return isAirborne;
+            return _isAirborne;
         }
 
         public void SetIsInRetreatState(bool isInRetreatState)
         {
-            wasRetreatOrderUsed = isInRetreatState;
+            _wasRetreatOrderUsed = isInRetreatState;
         }
 
         public bool IsInRetreatState()
         {
-            return wasRetreatOrderUsed;
+            return _wasRetreatOrderUsed;
         }
 
         public void SetIsInAttackState(bool isInAttackState)
         {
-            wasAttackOrderUsed = isInAttackState;
+            _wasAttackOrderUsed = isInAttackState;
         }
 
         public bool IsInAttackState()
         {
-            return wasAttackOrderUsed;
+            return _wasAttackOrderUsed;
         }
 
         public void SetIsInFleeState(bool isInFleeState)
         {
-            wasFleeOrderUsed = isInFleeState;
+            _wasFleeOrderUsed = isInFleeState;
         }
 
         public bool IsInFleeState()
         {
-            return wasFleeOrderUsed;
+            return _wasFleeOrderUsed;
+        }
+
+        public void SetDistancesToThreatGroupsThatThreatMe(List<float> distancesToThreatGroupsThatThreatMe)
+        {
+            _distancesToThreatGroupsThatThreatMe = distancesToThreatGroupsThatThreatMe;
+        }
+
+        public List<float> GetDistancesToThreatGroupsThatThreatMe()
+        {
+            return _distancesToThreatGroupsThatThreatMe;
+        }
+
+        public void SetThreatGroupsThatFightAllies(uint[] threatGroupsThatFightAllies)
+        {
+            _threatGroupsThatFightAllies = threatGroupsThatFightAllies;
+        }
+
+        public uint[] GetThreatGroupsThatFightAllies()
+        {
+            return _threatGroupsThatFightAllies;
         }
 
         public override float GetWeight()
         {
-            return moralWeight;
+            return _moralWeight;
         }
     }
 }

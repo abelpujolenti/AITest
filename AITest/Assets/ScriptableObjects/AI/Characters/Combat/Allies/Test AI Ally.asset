@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: Test AI Ally
   m_EditorClassIdentifier: 
   totalHealth: 10
+  sightMaximumDistance: 0
   flashTime: 0.75
   flashColor: {r: 1, g: 0, b: 0, a: 0}
   aiAttacks:
   - {fileID: 11400000, guid: 82dcd35726da0e14fb08c4ffc1ef5ba5, type: 2}
-  basicAttackDamage: 0
   basicStressDamage: 0
-  basicAttackMaximumRange: 0
   moralWeight: 3
+  radiusOfAlert: 20

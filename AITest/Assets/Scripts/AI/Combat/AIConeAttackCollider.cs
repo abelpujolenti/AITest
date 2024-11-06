@@ -1,5 +1,4 @@
-﻿using System;
-using AI.Combat.ScriptableObjects;
+﻿using AI.Combat.ScriptableObjects;
 using ECS.Components.AI.Combat;
 using ECS.Entities.AI.Combat;
 using UnityEngine;

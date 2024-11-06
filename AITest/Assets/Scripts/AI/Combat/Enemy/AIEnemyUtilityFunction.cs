@@ -1,6 +1,6 @@
 using System;
 using AI.Combat.ScriptableObjects;
-using Interfaces.AI.UBS.BaseInterfaces;
+using Interfaces.AI.UBS.BaseInterfaces.Get;
 using Interfaces.AI.UBS.Enemy;
 using UnityEngine;
 
@@ -67,6 +67,14 @@ namespace AI.Combat.Enemy
                 return 0;
             }
             
+            float distanceToRival = enemyGetCloserToRivalUtility.GetDistanceToRival();
+
+            if (enemyGetCloserToRivalUtility.GetMinimumRangeToAttack() < distanceToRival &&
+                enemyGetCloserToRivalUtility.GetMaximumRangeToAttack() > distanceToRival)
+            {
+                return 0;
+            }
+            
             return 1;
         }
 
@@ -77,7 +85,10 @@ namespace AI.Combat.Enemy
                 return 0;
             }
 
-            if (/*enemyAttackUtility.GetBasicAttackMaximumRange() < distanceToEnemy &&*/
+            float distanceToRival = enemyAttackUtility.GetDistanceToRival();
+
+            if (enemyAttackUtility.GetMinimumRangeToAttack() < distanceToRival &&
+                enemyAttackUtility.GetMaximumRangeToAttack() > distanceToRival &&
                 Vector3.Angle(enemyAttackUtility.GetAgentTransform().forward, enemyAttackUtility.GetVectorToRival()) < 15f)
             {
                 return 0.9f;
@@ -88,6 +99,8 @@ namespace AI.Combat.Enemy
         
         private static float CalculateFleeUtility(IEnemyFleeUtility enemyFleeUtility)  
         {
+            //RELATED WITH TARGET DISTANCE
+            
             return 0;
         }
     }

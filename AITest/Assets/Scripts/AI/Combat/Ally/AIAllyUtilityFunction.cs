@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
 using AI.Combat.ScriptableObjects;
 using Interfaces.AI.UBS.Ally;
-using Interfaces.AI.UBS.BaseInterfaces;
+using Interfaces.AI.UBS.BaseInterfaces.Get;
 using UnityEngine;
 
 namespace AI.Combat.Ally
@@ -46,7 +47,7 @@ namespace AI.Combat.Ally
 
         private static float CalculateFollowPlayerUtility(IAllyFollowPlayerUtility allyFollowPlayerUtility)
         {
-            return Convert.ToInt16(allyFollowPlayerUtility.IsInRetreatState() || !allyFollowPlayerUtility.IsSeeingARival());
+            return Convert.ToUInt16(allyFollowPlayerUtility.IsInRetreatState() || !allyFollowPlayerUtility.IsSeeingARival());
         }
         
         //RETHINK
@@ -75,7 +76,6 @@ namespace AI.Combat.Ally
                 return 0;
             }
             
-            //THIS MUST BE SEEING A LONELY RIVAL
             if (allyChooseNewRivalUtility.IsSeeingARival())
             {
                 return 0.4f;
@@ -127,8 +127,8 @@ namespace AI.Combat.Ally
                 return 0;
             }
 
-            if (allyAttackUtility.GetBasicAttackMaximumRange() < allyAttackUtility.GetDistanceToRival() &&
-                Vector3.Angle(allyAttackUtility.GetAgentTransform().forward, allyAttackUtility.GetVectorToRival()) < 15f)
+            if (allyAttackUtility.GetBasicAttackMaximumRange() < allyAttackUtility.GetDistanceToRival() ||
+                Vector3.Angle(allyAttackUtility.GetAgentTransform().forward, allyAttackUtility.GetVectorToRival()) >= 15f)
             {
                 return 0;
             }
@@ -163,19 +163,23 @@ namespace AI.Combat.Ally
             
             //2 TRUE | RETURN 0.8
             //2 FALSE | RETURN 0
-
-            if (!allyFleeUtility.HasATarget())
-            {
-                return 0;
-            }
             
             if (allyFleeUtility.IsInFleeState())
             {
                 return 1;
             }
 
-            if (allyFleeUtility.IsUnderThreat())
+            List<float> distancesToThreatGroups = allyFleeUtility.GetDistancesToThreatGroupsThatThreatMe();
+
+            float radiusOfAlert = allyFleeUtility.GetRadiusOfAlert();
+
+            foreach (float distance in distancesToThreatGroups)
             {
+                if (distance > radiusOfAlert)
+                {
+                    continue;
+                }
+
                 return 0.8f;
             }
             

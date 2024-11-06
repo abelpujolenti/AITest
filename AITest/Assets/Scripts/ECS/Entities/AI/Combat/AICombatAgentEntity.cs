@@ -1,4 +1,4 @@
-using System;
+using System.Collections;
 using System.Collections.Generic;
 using AI;
 using AI.Combat;
@@ -12,7 +12,7 @@ namespace ECS.Entities.AI.Combat
 {
     public abstract class AICombatAgentEntity<TContext> : NavMeshAgentEntity where TContext : AICombatAgentContext
     {
-        protected uint _combatAgentInstanceID;
+        private uint _combatAgentInstanceID;
 
         protected List<uint> _visibleRivals = new List<uint>();
         
@@ -24,16 +24,19 @@ namespace ECS.Entities.AI.Combat
 
         protected IGroup _groupComponent;
 
-        [SerializeField] private float _radius;
+        private Coroutine _updateCoroutine;
 
-        private void Update()
+        protected void StartUpdate()
         {
-            UpdateVisibleRivals();
-
-            UpdateVectorToRival();
-            
-            CalculateBestAction();
+            _updateCoroutine = StartCoroutine(UpdateCoroutine());
         }
+
+        protected void StopUpdate()
+        {
+            StopCoroutine(_updateCoroutine);
+        }
+
+        protected abstract IEnumerator UpdateCoroutine();
 
         protected void SetupCombatComponents(AICombatAgentSpecs aiCombatAgentSpecs)
         {
@@ -89,7 +92,8 @@ namespace ECS.Entities.AI.Combat
         public abstract void SetLastActionIndex(uint lastActionIndex);
         public abstract void SetHealth(uint health);
         public abstract void SetRivalIndex(uint rivalIndex);
-        
+
+        public abstract void SetRivalRadius(float rivalRadius);
         public abstract void SetDistanceToRival(float rivalDistance);
         
         public abstract void SetIsSeeingARival(bool isSeeingARival);
@@ -123,12 +127,7 @@ namespace ECS.Entities.AI.Combat
             return _groupComponent;
         }
 
-        public float GetRadius()
-        {
-            return _radius;
-        }
-
-        private void UpdateVectorToRival()
+        protected void UpdateVectorToRival()
         {
             TContext context = GetContext();
 

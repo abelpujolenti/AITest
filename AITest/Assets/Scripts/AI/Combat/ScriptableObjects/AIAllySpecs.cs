@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AI.Combat.ScriptableObjects
 {
@@ -9,5 +10,6 @@ namespace AI.Combat.ScriptableObjects
         
         public float basicStressDamage;
         public float moralWeight;
+        [FormerlySerializedAs("radiusToBeAlert")] public float radiusOfAlert;
     }
 }

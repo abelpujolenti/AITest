@@ -1,5 +1,6 @@
+using System.Collections;
+using System.Collections.Generic;
 using AI;
-using AI.Combat.Enemy;
 using AI.Combat.ScriptableObjects;
 using ECS.Components.AI.Combat;
 using Interfaces.AI.Combat;
@@ -12,6 +13,8 @@ namespace ECS.Entities.AI.Combat
     {
         [SerializeField] private AIEnemySpecs _aiEnemySpecs;
 
+        private List<uint> _overlappingEnemies = new List<uint>();
+
         private AIEnemyContext _enemyContext;
 
         private ThreatComponent _threatComponent;
@@ -21,10 +24,74 @@ namespace ECS.Entities.AI.Combat
             Setup();
             SetupCombatComponents(_aiEnemySpecs);
             _threatComponent = new ThreatComponent(_aiEnemySpecs.threatLevel);
-            _enemyContext = new AIEnemyContext(_aiEnemySpecs.totalHealth, transform, 
-                _aiEnemySpecs.threatLevel, _aiEnemySpecs.maximumStress);
+            
+            CalculateMinimumAndMaximumRangeToAttacks(out float minimumRange, out float maximumRange);
+            _enemyContext = new AIEnemyContext(_aiEnemySpecs.totalHealth, GetComponent<CapsuleCollider>().radius, 
+                _aiEnemySpecs.sightMaximumDistance, transform, _aiEnemySpecs.threatLevel, _aiEnemySpecs.maximumStress, 
+                minimumRange, maximumRange);
             
             CombatManager.Instance.AddAIEnemy(this, _enemyContext);
+            
+            StartUpdate();
+        }
+
+        protected override IEnumerator UpdateCoroutine()
+        {
+            while (true)
+            {
+                UpdateVisibleRivals();
+
+                UpdateVectorToRival();
+            
+                CalculateBestAction();
+
+                yield return null;
+            }
+        }
+
+        private void CalculateMinimumAndMaximumRangeToAttacks(out float minimumRange, out float maximumRange)
+        {
+            List<AIAttack> attacks = _aiEnemySpecs.aiAttacks;
+            
+            minimumRange = attacks[0].minimumRangeCast;
+            maximumRange = attacks[0].maximumRangeCast;
+
+            for (int i = 1; i < attacks.Count; i++)
+            {
+                AIAttack attack = attacks[i];
+                
+                float minimumAttackRange = attack.minimumRangeCast;
+                float maximumAttackRange = attack.maximumRangeCast;
+
+                if (minimumAttackRange < minimumRange)
+                {
+                    minimumRange = minimumAttackRange;
+                }
+
+                if (maximumAttackRange > maximumRange)
+                {
+                    maximumRange = maximumAttackRange;
+                }
+            }
+        }
+
+        public void AddOverlappingEnemyID(uint enemyID)
+        {
+            _overlappingEnemies.Add(enemyID);
+            
+            CombatManager.Instance.OnEnemyJoinEnemy(this, enemyID);
+        }
+
+        public void RemoveOverlappingEnemy(uint enemyID)
+        {
+            _overlappingEnemies.Remove(enemyID);
+            
+            CombatManager.Instance.OnEnemySeparateFromEnemy(this, enemyID);
+        }
+
+        public List<uint> GetOverlappingEnemies()
+        {
+            return _overlappingEnemies;
         }
 
         public ThreatComponent GetThreatComponent()
@@ -92,6 +159,11 @@ namespace ECS.Entities.AI.Combat
         public override void SetRivalIndex(uint rivalIndex)
         {
             _enemyContext.SetRivalIndex(rivalIndex);
+        }
+
+        public override void SetRivalRadius(float rivalRadius)
+        {
+            _enemyContext.SetRivalRadius(rivalRadius);
         }
 
         public override void SetDistanceToRival(float distanceToRival)

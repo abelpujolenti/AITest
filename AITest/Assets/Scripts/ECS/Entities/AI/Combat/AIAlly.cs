@@ -1,3 +1,6 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using AI;
 using AI.Combat.Ally;
 using AI.Combat.ScriptableObjects;
@@ -12,6 +15,10 @@ namespace ECS.Entities.AI.Combat
     {
         [SerializeField] private AIAllySpecs _aiAllySpecs;
 
+        private List<uint> _threatGroupsThatThreatMe = new List<uint>();
+        
+        private uint[] _threatGroupsThatFightAllies = Array.Empty<uint>();
+
         private AIAllyContext _allyContext;
         
         private MoralComponent _moralComponent;
@@ -24,10 +31,30 @@ namespace ECS.Entities.AI.Combat
             SetupCombatComponents(_aiAllySpecs);
             _moralComponent = new MoralComponent(_aiAllySpecs.moralWeight);
             _dieComponent = new DieComponent();
-            _allyContext = new AIAllyContext(_aiAllySpecs.totalHealth, transform, _aiAllySpecs.aiAttacks[0].maximumRangeCast,
-                _aiAllySpecs.aiAttacks[0].totalDamage, _aiAllySpecs.basicStressDamage, _aiAllySpecs.moralWeight);
+            _allyContext = new AIAllyContext(_aiAllySpecs.totalHealth, GetComponent<CapsuleCollider>().radius, 
+                _aiAllySpecs.sightMaximumDistance, transform, _aiAllySpecs.aiAttacks[0].maximumRangeCast, 
+                _aiAllySpecs.aiAttacks[0].totalDamage, _aiAllySpecs.basicStressDamage, _aiAllySpecs.moralWeight, 
+                _aiAllySpecs.radiusOfAlert);
             
             CombatManager.Instance.AddAIAlly(this, _allyContext);
+            
+            StartUpdate();
+        }
+
+        protected override IEnumerator UpdateCoroutine()
+        {
+            while (true)
+            {
+                UpdateVisibleRivals();
+
+                UpdateVectorToRival();
+
+                UpdateDistancesToThreatGroupsThatThreatMe();
+            
+                CalculateBestAction();
+
+                yield return null;
+            }
         }
 
         public ref MoralComponent GetMoralComponent()
@@ -45,8 +72,26 @@ namespace ECS.Entities.AI.Combat
             _visibleRivals = CombatManager.Instance.GetVisibleRivals<AIEnemy, AIEnemyContext, AIAllyContext>(this);
 
             _allyContext.SetIsSeeingARival(_visibleRivals.Count != 0);
+
+            if (_visibleRivals.Count == 0)
+            {
+                return;
+            }
+
+            _threatGroupsThatThreatMe = CombatManager.Instance.FilterThreatGroupsThatThreatMe(GetCombatAgentInstance(), 
+                GetStatWeightComponent(), _allyContext.GetThreatWeightOfTarget(), _visibleRivals);
+            
+            
+
+            _threatGroupsThatFightAllies = CombatManager.Instance.FilterPerThreatGroupAlliesFighting(this);
         }
-        
+
+        private void UpdateDistancesToThreatGroupsThatThreatMe()
+        {
+            _allyContext.SetDistancesToThreatGroupsThatThreatMe(
+                CombatManager.Instance.GetDistancesToGivenThreatGroups(transform.position, _threatGroupsThatThreatMe));
+        }
+
         protected override void CalculateBestAction()
         {
             CombatManager.Instance.CalculateBestAction(this);
@@ -93,6 +138,11 @@ namespace ECS.Entities.AI.Combat
         public override void SetRivalIndex(uint rivalIndex)
         {
             _allyContext.SetRivalIndex(rivalIndex);
+        }
+
+        public override void SetRivalRadius(float rivalRadius)
+        {
+            _allyContext.SetRivalRadius(rivalRadius);
         }
 
         public override void SetDistanceToRival(float distanceToRival)
@@ -195,6 +245,16 @@ namespace ECS.Entities.AI.Combat
             _allyContext.SetIsInRetreatState(allyOrder == AIAllyOrders.RETREAT);
             _allyContext.SetIsInAttackState(allyOrder == AIAllyOrders.ATTACK);
             _allyContext.SetIsInFleeState(allyOrder == AIAllyOrders.FLEE);
+        }
+
+        public List<uint> GetThreatGroupsThatThreatMe()
+        {
+            return _threatGroupsThatThreatMe;
+        }
+
+        public uint[] GetThreatGroupsThatFightAllies()
+        {
+            return _threatGroupsThatFightAllies;
         }
     }
 }

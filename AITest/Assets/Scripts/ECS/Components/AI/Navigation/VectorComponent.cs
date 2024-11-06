@@ -5,21 +5,21 @@ namespace ECS.Components.AI.Navigation
 {
     public class VectorComponent : IPosition
     {
-        private Vector3 _destination;
+        private Vector3 _position;
 
-        public VectorComponent(Vector3 destination)
+        public VectorComponent(Vector3 position)
         {
-            _destination = destination;
+            _position = position;
         }
 
         public Vector3 GetPosition()
         {
-            return _destination;
+            return _position;
         }
 
-        public void SetDestination(Vector3 destination)
+        public void SetPosition(Vector3 position)
         {
-            _destination = destination;
+            _position = position;
         }
     }
 }

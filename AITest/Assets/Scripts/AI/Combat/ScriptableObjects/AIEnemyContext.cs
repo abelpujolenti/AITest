@@ -6,57 +6,74 @@ namespace AI.Combat.ScriptableObjects
     public class AIEnemyContext : AICombatAgentContext, IEnemyPatrolUtility, IEnemyChooseNewRivalUtility, IEnemyGetCloserToRivalUtility,
         IEnemyAttackUtility, IEnemyFleeUtility
     {
-        private uint currentThreatGroup;
-        private uint currentThreatGroupWeight;
+        private uint _currentThreatGroup;
         
-        private float threatLevel;
-        private float maximumStress;
-        private float currentStress;
+        private float _threatLevel;
+        private float _currentThreatGroupWeight;
+        private float _maximumStress;
+        private float _currentStress;
+        private float _minimumRangeToAttack;
+        private float _maximumRangeToAttack;
 
-        public AIEnemyContext(uint totalHealth, Transform agentTransform, float threatLevel, float maximumStress) : base(totalHealth, agentTransform)
+        public AIEnemyContext(uint totalHealth, float radius, float sightMaximumDistance, Transform agentTransform, float threatLevel, 
+            float maximumStress, float minimumRangeToAttack, float maximumRangeToAttack) : 
+            base(totalHealth, radius, sightMaximumDistance, agentTransform)
         {
-            this.threatLevel = threatLevel;
-            this.maximumStress = maximumStress;
+            _threatLevel = threatLevel;
+            _currentThreatGroupWeight = _threatLevel;
+            _maximumStress = maximumStress;
+            _minimumRangeToAttack = minimumRangeToAttack;
+            _maximumRangeToAttack = maximumRangeToAttack;
         }
 
         public void SetCurrentThreatGroup(uint currentThreatGroup)
         {
-            this.currentThreatGroup = currentThreatGroup;
+            _currentThreatGroup = currentThreatGroup;
         }
 
         public uint GetCurrentThreatGroup()
         {
-            return currentThreatGroup;
+            return _currentThreatGroup;
         }
 
-        public void SetCurrentThreatGroupWeight(uint currentThreatGroupWeight)
+        public void SetCurrentThreatGroupWeight(float currentThreatGroupWeight)
         {
-            this.currentThreatGroupWeight = currentThreatGroupWeight;
+            _currentThreatGroupWeight = currentThreatGroupWeight;
         }
 
-        public uint GetCurrentThreatGroupWeight()
+        public float GetCurrentThreatGroupWeight()
         {
-            return currentThreatGroupWeight;
+            return _currentThreatGroupWeight;
         }
 
         public float GetMaximumStress()
         {
-            return maximumStress;
+            return _maximumStress;
         }
 
         public void SetCurrentStress(float currentStress)
         {
-            this.currentStress = currentStress;
+            _currentStress = currentStress;
         }
 
         public float GetCurrentStress()
         {
-            return currentStress;
+            return _currentStress;
+        }
+
+        public float GetMinimumRangeToAttack()
+        {
+            return _minimumRangeToAttack;
+        }
+
+        public float GetMaximumRangeToAttack()
+        {
+            return _maximumRangeToAttack;
         }
 
         public override float GetWeight()
         {
-            return threatLevel;
+            return _threatLevel;
         }
     }
 }

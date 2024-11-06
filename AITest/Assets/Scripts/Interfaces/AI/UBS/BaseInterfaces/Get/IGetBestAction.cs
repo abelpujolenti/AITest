@@ -1,4 +1,4 @@
-﻿namespace Interfaces.AI.UBS.BaseInterfaces
+﻿namespace Interfaces.AI.UBS.BaseInterfaces.Get
 {
     public interface IGetBestAction<TAction, TContext>
     {

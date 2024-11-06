@@ -1,5 +1,4 @@
 using ECS.Entities.AI.Combat;
-using Managers;
 using UnityEngine;
 
 namespace AI.Combat.Enemy
@@ -10,19 +9,15 @@ namespace AI.Combat.Enemy
 
         private void OnTriggerEnter(Collider other)
         {
-            AIEnemy otherEnemy = other.GetComponent<EnemyDetectionZone>().GetAIEnemy();
-            
-            CombatManager.Instance.OnEnemyJoinEnemy(_aiEnemy, otherEnemy);
+            _aiEnemy.AddOverlappingEnemyID(other.GetComponent<EnemyDetectionZone>().GetAIEnemy().GetCombatAgentInstance());
         }
 
         private void OnTriggerExit(Collider other)
         {
-            AIEnemy otherEnemy = other.GetComponent<EnemyDetectionZone>().GetAIEnemy();
-            
-            CombatManager.Instance.OnEnemySeparateFromEnemy(_aiEnemy, otherEnemy);
+            _aiEnemy.RemoveOverlappingEnemy(other.GetComponent<EnemyDetectionZone>().GetAIEnemy().GetCombatAgentInstance());
         }
 
-        public AIEnemy GetAIEnemy()
+        private AIEnemy GetAIEnemy()
         {
             return _aiEnemy;
         }
