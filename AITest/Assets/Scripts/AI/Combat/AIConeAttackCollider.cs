@@ -53,13 +53,13 @@ namespace AI.Combat
 
         private void OnTriggerEnter(Collider other)
         {
-            //TODO
+            //TODO WARN ALLY
             AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
         }
 
         private void OnTriggerExit(Collider other)
         {
-            //TODO
+            //TODO STOP WARNING ALLY
             AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
         }
     }

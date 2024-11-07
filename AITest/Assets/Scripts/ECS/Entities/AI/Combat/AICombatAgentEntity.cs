@@ -16,7 +16,7 @@ namespace ECS.Entities.AI.Combat
 
         protected List<uint> _visibleRivals = new List<uint>();
         
-        private List<AttackComponent> _attackComponents = new List<AttackComponent>();
+        protected List<AttackComponent> _attackComponents = new List<AttackComponent>();
 
         protected DamageFeedbackComponent _damageFeedbackComponent;
 
@@ -28,12 +28,38 @@ namespace ECS.Entities.AI.Combat
 
         protected void StartUpdate()
         {
+            if (_updateCoroutine != null)
+            {
+                return;
+            }
             _updateCoroutine = StartCoroutine(UpdateCoroutine());
         }
 
         protected void StopUpdate()
         {
             StopCoroutine(_updateCoroutine);
+            _updateCoroutine = null;
+        }
+
+        protected override IEnumerator RotateToNextPathCornerCoroutine()
+        {
+            Vector3 vectorToNextPathCorner;
+            do
+            {
+                Transform ownTransform = transform;
+                
+                vectorToNextPathCorner = _navMeshAgent.path.corners[1] - ownTransform.position;
+                vectorToNextPathCorner.y = 0;
+                
+                Quaternion rotation = Quaternion.LookRotation(vectorToNextPathCorner);
+                transform.rotation = Quaternion.Lerp(ownTransform.rotation, rotation, _rotationSpeed * Time.deltaTime);
+                yield return null;
+                
+            } while (Vector3.Angle(transform.forward, vectorToNextPathCorner) >= 30f);
+            
+            GetContext().SetIsAttacking(false);
+            
+            ContinueNavigation();
         }
 
         protected abstract IEnumerator UpdateCoroutine();
@@ -82,7 +108,6 @@ namespace ECS.Entities.AI.Combat
         protected abstract void UpdateVisibleRivals();
         protected abstract void CalculateBestAction();
         
-        public abstract void Attack(uint attackIndex); 
         public abstract void OnReceiveDamage(DamageComponent damageComponent);
 
         public abstract AIAgentType GetAIAgentType();

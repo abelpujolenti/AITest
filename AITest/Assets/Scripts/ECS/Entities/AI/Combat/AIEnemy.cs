@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using AI;
@@ -6,6 +7,7 @@ using ECS.Components.AI.Combat;
 using Interfaces.AI.Combat;
 using Managers;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace ECS.Entities.AI.Combat
 {
@@ -13,11 +15,16 @@ namespace ECS.Entities.AI.Combat
     {
         [SerializeField] private AIEnemySpecs _aiEnemySpecs;
 
+        [SerializeField] private SphereCollider _originalThreatGroupInfluenceCollider;
+
         private List<uint> _overlappingEnemies = new List<uint>();
 
         private AIEnemyContext _enemyContext;
 
         private ThreatComponent _threatComponent;
+
+        private float _minimumRangeToCastAnAttack;
+        private float _maximumRangeToCastAnAttack;
         
         private void Start()
         {
@@ -25,10 +32,11 @@ namespace ECS.Entities.AI.Combat
             SetupCombatComponents(_aiEnemySpecs);
             _threatComponent = new ThreatComponent(_aiEnemySpecs.threatLevel);
             
-            CalculateMinimumAndMaximumRangeToAttacks(out float minimumRange, out float maximumRange);
+            CalculateMinimumAndMaximumRangeToAttacks();
+            
             _enemyContext = new AIEnemyContext(_aiEnemySpecs.totalHealth, GetComponent<CapsuleCollider>().radius, 
-                _aiEnemySpecs.sightMaximumDistance, transform, _aiEnemySpecs.threatLevel, _aiEnemySpecs.maximumStress, 
-                minimumRange, maximumRange);
+                _aiEnemySpecs.sightMaximumDistance, transform, _aiEnemySpecs.threatLevel, _originalThreatGroupInfluenceCollider.radius,
+                _aiEnemySpecs.maximumStress, _minimumRangeToCastAnAttack, _maximumRangeToCastAnAttack);
             
             CombatManager.Instance.AddAIEnemy(this, _enemyContext);
             
@@ -42,6 +50,12 @@ namespace ECS.Entities.AI.Combat
                 UpdateVisibleRivals();
 
                 UpdateVectorToRival();
+
+                if (_enemyContext.IsAttacking())
+                {
+                    yield return null;
+                    continue;
+                }
             
                 CalculateBestAction();
 
@@ -49,12 +63,12 @@ namespace ECS.Entities.AI.Combat
             }
         }
 
-        private void CalculateMinimumAndMaximumRangeToAttacks(out float minimumRange, out float maximumRange)
+        private void CalculateMinimumAndMaximumRangeToAttacks()
         {
             List<AIAttack> attacks = _aiEnemySpecs.aiAttacks;
             
-            minimumRange = attacks[0].minimumRangeCast;
-            maximumRange = attacks[0].maximumRangeCast;
+            _minimumRangeToCastAnAttack = attacks[0].minimumRangeCast;
+            _maximumRangeToCastAnAttack = attacks[0].maximumRangeCast;
 
             for (int i = 1; i < attacks.Count; i++)
             {
@@ -63,14 +77,14 @@ namespace ECS.Entities.AI.Combat
                 float minimumAttackRange = attack.minimumRangeCast;
                 float maximumAttackRange = attack.maximumRangeCast;
 
-                if (minimumAttackRange < minimumRange)
+                if (minimumAttackRange < _minimumRangeToCastAnAttack)
                 {
-                    minimumRange = minimumAttackRange;
+                    _minimumRangeToCastAnAttack = minimumAttackRange;
                 }
 
-                if (maximumAttackRange > maximumRange)
+                if (maximumAttackRange > _maximumRangeToCastAnAttack)
                 {
-                    maximumRange = maximumAttackRange;
+                    _maximumRangeToCastAnAttack = maximumAttackRange;
                 }
             }
         }
@@ -111,10 +125,123 @@ namespace ECS.Entities.AI.Combat
             CombatManager.Instance.CalculateBestAction(this);
         }
 
-        public override void Attack(uint attackIndex)
+        public AttackComponent Attack()
         {
-            //TODO
+            AttackComponent attackComponent = ReturnNextAttack();
+            
             _enemyContext.SetIsAttacking(true);
+
+            return attackComponent;
+        }
+
+        private AttackComponent ReturnNextAttack()
+        {
+            List<AttackComponent> possibleAttacks = new List<AttackComponent>();
+            List<float> minimumRangesInsideCurrentRange = new List<float>();
+            List<float> maximumRangesInsideCurrentRange = new List<float>();
+
+            float currentMinimumRangeToAttack = _enemyContext.GetMinimumRangeToAttack();
+            float currentMaximumRangeToAttack = _enemyContext.GetMaximumRangeToAttack();
+            
+            foreach (AttackComponent attackComponent in _attackComponents)
+            {
+                float currentAttackMinimumRangeToCast = attackComponent.GetMinimumRangeCast();
+                float currentAttackMaximumRangeToCast = attackComponent.GetMaximumRangeCast();
+                
+                if (currentAttackMinimumRangeToCast < currentMinimumRangeToAttack ||
+                    currentAttackMaximumRangeToCast > currentMaximumRangeToAttack ||
+                    attackComponent.IsOnCooldown())
+                {
+                    continue;
+                }
+                
+                minimumRangesInsideCurrentRange.Add(currentAttackMinimumRangeToCast);
+                maximumRangesInsideCurrentRange.Add(currentAttackMaximumRangeToCast);
+                
+                possibleAttacks.Add(attackComponent);
+            }
+
+            int randomNumber = Random.Range(0, possibleAttacks.Count);
+
+            AttackComponent selectedAttackComponent = possibleAttacks[randomNumber];
+            
+            minimumRangesInsideCurrentRange.RemoveAt(randomNumber);
+            maximumRangesInsideCurrentRange.RemoveAt(randomNumber);
+
+            if (minimumRangesInsideCurrentRange.Count == 0)
+            {
+                _enemyContext.SetMinimumRangeToAttack(_maximumRangeToCastAnAttack);
+                _enemyContext.SetMaximumRangeToAttack(_minimumRangeToCastAnAttack);
+                return selectedAttackComponent;
+            }
+
+            if (Math.Abs(selectedAttackComponent.GetMinimumRangeCast() - currentMinimumRangeToAttack) < 0.3f)
+            {
+                UpdateMinimumRangeToCast(minimumRangesInsideCurrentRange);
+            }
+
+            if (Math.Abs(selectedAttackComponent.GetMaximumRangeCast() - currentMaximumRangeToAttack) < 0.3f)
+            {
+                UpdateMaximumRangeToCast(maximumRangesInsideCurrentRange);
+            }
+
+            return selectedAttackComponent;
+        }
+
+        private void UpdateMinimumRangeToCast(List<float> minimumRangesInsideCurrentRange)
+        {
+            float newMinimumRange = minimumRangesInsideCurrentRange[0];
+
+            for (int i = 1; i < minimumRangesInsideCurrentRange.Count; i++)
+            {
+                float currentMinimumRange = minimumRangesInsideCurrentRange[i];
+                
+                if (currentMinimumRange > newMinimumRange)
+                {
+                    continue;
+                }
+
+                newMinimumRange = currentMinimumRange;
+            }
+            
+            _enemyContext.SetMinimumRangeToAttack(newMinimumRange);
+        }
+
+        private void UpdateMaximumRangeToCast(List<float> maximumRangesInsideCurrentRange)
+        {
+            float newMaximumRange = maximumRangesInsideCurrentRange[0];
+
+            for (int i = 1; i < maximumRangesInsideCurrentRange.Count; i++)
+            {
+                float currentMaximumRange = maximumRangesInsideCurrentRange[i];
+                
+                if (currentMaximumRange > newMaximumRange)
+                {
+                    continue;
+                }
+
+                newMaximumRange = currentMaximumRange;
+            }
+            
+            _enemyContext.SetMaximumRangeToAttack(newMaximumRange);
+        }
+
+        public void OnAttackAvailableAgain(AttackComponent attackComponent)
+        {
+            float attackMinimumRangeToCast = attackComponent.GetMinimumRangeCast();
+            float attackMaximumRangeToCast = attackComponent.GetMaximumRangeCast();
+
+            if (_enemyContext.GetMinimumRangeToAttack() > attackMinimumRangeToCast)
+            {
+                _enemyContext.SetMinimumRangeToAttack(attackMinimumRangeToCast);
+            }
+
+            if (_enemyContext.GetMaximumRangeToAttack() > attackMaximumRangeToCast)
+            {
+                return;
+            }
+            
+            _enemyContext.SetMaximumRangeToAttack(attackMaximumRangeToCast);
         }
 
         public override void OnReceiveDamage(DamageComponent damageComponent)

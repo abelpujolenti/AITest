@@ -1,4 +1,5 @@
-﻿using Interfaces.AI.Combat;
+﻿using System.Collections.Generic;
+using Interfaces.AI.Combat;
 using Interfaces.AI.UBS.BaseInterfaces.Get;
 using Interfaces.AI.UBS.BaseInterfaces.Property;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace AI.Combat.ScriptableObjects
         IRivalRadius, IGetSightMaximumDistance, IDistanceToRival, ISeeingARival, ITarget, IFighting, IAttacking, 
         IVectorToRival, IRivalTransform, IGetAgentTransform, IStatWeight
     {
+        protected List<uint> _repeatableActions = new List<uint>();
         private uint _lastActionIndex = 10;
         
         private uint _totalHealth;
@@ -37,6 +39,11 @@ namespace AI.Combat.ScriptableObjects
             _radius = radius;
             _sightMaximumDistance = sightMaximumDistance != 0 ? sightMaximumDistance : Mathf.Infinity; 
             _agentTransform = agentTransform;
+        }
+
+        public List<uint> GetRepeatableActions()
+        {
+            return _repeatableActions;
         }
 
         public void SetLastActionIndex(uint lastActionIndex)

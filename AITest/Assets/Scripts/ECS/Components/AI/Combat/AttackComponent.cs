@@ -8,8 +8,8 @@ namespace ECS.Components.AI.Combat
     {
         private uint _totalDamage;
         private float _height;
-        private bool _doesRelativePositionChange;
-        private Vector3 _relativePosition;
+        private bool _doesRelativePositionToCasterChange;
+        private Vector3 _relativePositionToCaster;
         private bool _isAttachedToAttacker;
         private float _minimumRangeToCast;
         private float _maximumRangeToCast;
@@ -23,7 +23,11 @@ namespace ECS.Components.AI.Combat
 
         private bool _itLandsInstantly;
 
+        private Vector3 _startRelativePositionToCasterOfTheProjectile;
+
         private float _projectileSpeed;
+
+        private bool _doesProjectileExplodeOnAnyContact;
 
         private bool _doesDamageOverTime;
 
@@ -36,8 +40,8 @@ namespace ECS.Components.AI.Combat
         {
             _totalDamage = aiAttack.totalDamage;
             _height = aiAttack.height;
-            _doesRelativePositionChange = aiAttack.doesRelativePositionChange;
-            _relativePosition = aiAttack.relativePosition;
+            _doesRelativePositionToCasterChange = aiAttack.doesRelativePositionToCasterChange;
+            _relativePositionToCaster = aiAttack.relativePositionToCaster;
             _isAttachedToAttacker = aiAttack.attachToAttacker;
             _minimumRangeToCast = aiAttack.minimumRangeCast;
             _maximumRangeToCast = aiAttack.maximumRangeCast;
@@ -47,7 +51,9 @@ namespace ECS.Components.AI.Combat
             _timeToCast = aiAttack.timeToCast;
             _cooldown = aiAttack.cooldown;
             _itLandsInstantly = aiAttack.itLandsInstantly;
+            _startRelativePositionToCasterOfTheProjectile = aiAttack.startRelativePositionToCasterOfTheProjectile;
             _projectileSpeed = aiAttack.projectileSpeed;
+            _doesProjectileExplodeOnAnyContact = aiAttack.doesProjectileExplodeOnAnyContact;
             _doesDamageOverTime = aiAttack.doesDamageOverTime;
             _timeDealingDamage = aiAttack.timeDealingDamage;
             _aiAttackAoEType = aiAttack.attackAoE.aiAttackAoEType;
@@ -65,17 +71,17 @@ namespace ECS.Components.AI.Combat
 
         public Vector3 GetRelativePosition()
         {
-            return _relativePosition;
+            return _relativePositionToCaster;
         }
 
         public void SetRelativePositionIfPossible(Vector3 position)
         {
-            if (!_doesRelativePositionChange)
+            if (!_doesRelativePositionToCasterChange)
             {
                 return; 
             }   
             
-            _relativePosition = position;
+            _relativePositionToCaster = position;
         }
 
         public bool IsAttachedToAttacker()
@@ -154,9 +160,19 @@ namespace ECS.Components.AI.Combat
             return _itLandsInstantly;
         }
 
+        public Vector3 GetStartRelativePositionToCasterOfTheProjectile()
+        {
+            return _startRelativePositionToCasterOfTheProjectile;
+        }
+
         public float GetProjectileSpeed()
         {
             return _projectileSpeed;
+        }
+
+        public bool DoesProjectileExplodeOnAnyContact()
+        {
+            return _doesProjectileExplodeOnAnyContact;
         }
 
         public bool DoesDamageOverTime()
@@ -176,7 +192,7 @@ namespace ECS.Components.AI.Combat
 
         public bool DidDamageOverTimeFinished()
         {
-            return _remainingTimeDealingDamage == 0;
+            return _remainingTimeDealingDamage != 0;
         }
 
         public AIAttackAoEType GetAIAttackAoEType()

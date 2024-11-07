@@ -254,5 +254,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _navMeshAgentSpecs: {fileID: 11400000, guid: fbd6b8ac878a9194fb62cdbd901148af, type: 2}
-  _radius: 0
+  _navMeshAgent: {fileID: 822707446408495367}
   _aiEnemySpecs: {fileID: 11400000, guid: 076492a5609594c47abb6f1e66f6fc3a, type: 2}
+  _originalThreatGroupInfluenceCollider: {fileID: 2896661167637748356}

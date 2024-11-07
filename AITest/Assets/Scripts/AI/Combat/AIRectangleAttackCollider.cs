@@ -33,7 +33,7 @@ namespace AI.Combat
         private void Rotate()
         {
             transform.rotation = _parentRotation * 
-                                 Quaternion.LookRotation( _rectangleAttackComponent.GetDirection().normalized, Vector3.up);
+                                 Quaternion.LookRotation(_rectangleAttackComponent.GetDirection().normalized, Vector3.up);
         }
 
         public override void SetAttackTargets(int targetsLayerMask)
@@ -44,6 +44,8 @@ namespace AI.Combat
 
         public void SetRectangleAttackComponent(RectangleAttackComponent rectangleAttackComponent)
         {
+            gameObject.name = rectangleAttackComponent.GetCurrentTimeToFinishCast().ToString();
+            
             _boxCollider = gameObject.AddComponent<BoxCollider>();
             _boxCollider.isTrigger = true;
             
@@ -67,13 +69,13 @@ namespace AI.Combat
 
         private void OnTriggerEnter(Collider other)
         {
-            //TODO
+            //TODO WARN ALLY
             AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
         }
 
         private void OnTriggerExit(Collider other)
         {
-            //TODO
+            //TODO STOP WARNING ALLY
             AICombatAgentEntity<AICombatAgentContext> aiCombatAgent = other.GetComponent<AICombatAgentEntity<AICombatAgentContext>>();
         }
     }

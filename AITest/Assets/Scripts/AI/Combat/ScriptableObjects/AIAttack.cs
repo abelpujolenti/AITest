@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AI.Combat.ScriptableObjects
 {
@@ -11,8 +12,8 @@ namespace AI.Combat.ScriptableObjects
 
         public float height;
 
-        public bool doesRelativePositionChange;
-        public Vector3 relativePosition;
+        public bool doesRelativePositionToCasterChange;
+        public Vector3 relativePositionToCaster;
 
         public bool attachToAttacker;
 
@@ -29,8 +30,11 @@ namespace AI.Combat.ScriptableObjects
 
         public bool itLandsInstantly;
 
+        public Vector3 startRelativePositionToCasterOfTheProjectile;
+
         public float projectileSpeed;
 
+        public bool doesProjectileExplodeOnAnyContact;
         
         public AIAttackAoE attackAoE;
     }

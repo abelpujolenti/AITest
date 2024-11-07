@@ -22,9 +22,6 @@ namespace Managers
 
         public static CombatManager Instance => _instance;
 
-        private Dictionary<uint, AICombatAgentEntity<AICombatAgentContext>> _aiCombatAgentInstanceIDs =
-            new Dictionary<uint, AICombatAgentEntity<AICombatAgentContext>>();
-
         private Dictionary<AIAgentType, Delegate> _returnTheSameAgentsType = new Dictionary<AIAgentType, Delegate>
         {
             { AIAgentType.ALLY, new Func<List<AIAlly>>(() => 
@@ -96,6 +93,7 @@ namespace Managers
                 
                 //ERASE!!!
                 TERRAIN_POSITIONS = GetTerrainPositions(FLEE_POINTS);
+                StartCoroutine(UpdateFleeMovement());
                 //
 
                 return;
@@ -163,18 +161,18 @@ namespace Managers
         {
             AIAllyAction allyAction = CalculateBestAction<AIAllyAction, AIAllyContext>(ally.GetContext(), _allyUtilityFunction);
             
-            //CheckIfIsAlreadyPerformingThisAction<AIAlly, AIAllyContext, AIAllyAction>(ally, allyAction, AllyPerformAction);
+            CheckIfCanPerformGivenAction<AIAlly, AIAllyContext, AIAllyAction>(ally, allyAction, AllyPerformAction);
             
-            AllyPerformAction(ally, allyAction);
+            //AllyPerformAction(ally, allyAction);
         }
 
         public void CalculateBestAction(AIEnemy enemy)
         {
             AIEnemyAction enemyAction = CalculateBestAction<AIEnemyAction, AIEnemyContext>(enemy.GetContext(), _enemyUtilityFunction);
             
-            //CheckIfIsAlreadyPerformingThisAction<AIEnemy, AIEnemyContext, AIEnemyAction>(enemy, enemyAction, EnemyPerformAction);
+            CheckIfCanPerformGivenAction<AIEnemy, AIEnemyContext, AIEnemyAction>(enemy, enemyAction, EnemyPerformAction);
             
-            EnemyPerformAction(enemy, enemyAction);
+            //EnemyPerformAction(enemy, enemyAction);
         }
 
         private static TAction CalculateBestAction<TAction, TContext>(TContext context, 
@@ -183,15 +181,20 @@ namespace Managers
             return utilityCalculator.GetBestAction(context);
         }
 
-        private static void CheckIfIsAlreadyPerformingThisAction<TAgent, TContext, TAction>(TAgent agent, TAction agentAction, 
+        private static void CheckIfCanPerformGivenAction<TAgent, TContext, TAction>(TAgent agent, TAction agentAction, 
             Action<TAgent, TAction> action)
         where TAgent : AICombatAgentEntity<TContext> 
         where TContext : AICombatAgentContext
         where TAction : Enum
         {
-            uint agentActionUInt = Convert.ToUInt16(agentAction);
+            TContext context = agent.GetContext();
             
-            if (agent.GetContext().GetLastActionIndex() == agentActionUInt)
+            uint agentActionUInt = Convert.ToUInt16(agentAction);
+            uint lastAction = context.GetLastActionIndex();
+
+            List<uint> repeatableActions = context.GetRepeatableActions();
+
+            if (agentActionUInt == lastAction && !repeatableActions.Contains(lastAction))
             {
                 return;
             }
@@ -204,7 +207,7 @@ namespace Managers
         #region Ally
 
         public List<uint> FilterThreatGroupsThatThreatMe(uint combatAgentInstance, IStatWeight moralWeightComponent,
-            float threatWeightOfCurrentTarget, List<uint> visibleRivalsIDs)
+            uint threatGroupOfCurrentTarget, List<uint> visibleRivalsIDs)
         {
             List<uint> threatGroupsThatThreatMe = new List<uint>();
             List<uint> threatGroupsChecked = new List<uint>();
@@ -227,7 +230,12 @@ namespace Managers
                     continue;
                 }
 
-                if (threatGroupComponent.threatGroupWeight + threatWeightOfCurrentTarget < moralWeightComponent.GetWeight())
+                float totalThreatWeight = threatGroupComponent.threatGroupWeight;
+                
+                totalThreatWeight += _threatGroups[threatGroupOfCurrentTarget].Key.threatGroupWeight * 
+                                    Convert.ToUInt16(currentThreatGroupID != threatGroupOfCurrentTarget);
+
+                if (totalThreatWeight < moralWeightComponent.GetWeight())
                 {
                     continue;
                 }
@@ -265,7 +273,7 @@ namespace Managers
 
         private void AllyFollowPlayer(AIAlly ally)
         {
-            //TODO
+            //TODO FOLLOW PLAYER
             Debug.Log(ally.name + " Following Player");
         }
 
@@ -301,7 +309,8 @@ namespace Managers
             }
             else
             {
-                targetId = GetClosestRival(navMeshAgentComponent.GetTransformComponent(), visibleRivals);
+                targetId = GetClosestRival<AIEnemy, AIEnemyContext>(navMeshAgentComponent.GetTransformComponent(), 
+                    _aiEnemies, visibleRivals);
             }
 
             AIEnemy targetEnemy = _aiEnemies[targetId];
@@ -325,6 +334,8 @@ namespace Managers
 
             AIEnemy targetEnemy = _aiEnemies[ally.GetContext().GetRivalIndex()];
             
+            ally.ContinueNavigation();
+            
             ECSNavigationManager.Instance.UpdateNavMeshAgentTransformDestination(ally.GetNavMeshAgentComponent(),
                 targetEnemy.GetNavMeshAgentComponent().GetTransformComponent());
         }
@@ -332,27 +343,36 @@ namespace Managers
         private void AllyAttack(AIAlly ally)
         {
             Debug.Log(ally.name + " Attacking");
-                
-            ally.SetIsAttacking(true);
             
-            StartCastingAnAttack(ally.transform, ally.GetAttackComponents()[0]);
+            ally.Attack();
         }
 
         private void AllyFlee(AIAlly ally)
         {
-            //TODO
+            //TODO (REWORK) ALLY FLEE 
+            
+            ally.ContinueNavigation();
+            
+            EvaluateClosestPoint(ally);
+            
             Debug.Log(ally.name + " Fleeing");
         }
 
         private void AllyDodge(AIAlly ally)
         {
-            //TODO
+            //TODO ALLY DODGE
+            
+            ally.ContinueNavigation();
+            
             Debug.Log(ally.name + " Dodging");
         }
 
         private void AllyHelpAnotherAlly(AIAlly ally)
         {
-            //TODO
+            //TODO HELP ANOTHER ALLY
+            
+            ally.ContinueNavigation();
+            
             Debug.Log(ally.name + " Helping another ally");
         }
 
@@ -367,7 +387,7 @@ namespace Managers
 
         private void EnemyPatrol(AIEnemy enemy)
         {
-            //TODO
+            //TODO ENEMY PATROL
             Debug.Log(enemy.name + " Patrolling");
         }
 
@@ -392,7 +412,8 @@ namespace Managers
             }
             else
             {
-                targetId = GetClosestRival(navMeshAgentComponent.GetTransformComponent(), visibleRivals);
+                targetId = GetClosestRival<AIAlly, AIAllyContext>(navMeshAgentComponent.GetTransformComponent(), 
+                    _aiAllies, visibleRivals);
             }
 
             AIAlly targetAlly = _aiAllies[targetId];
@@ -414,22 +435,28 @@ namespace Managers
 
             AIAlly targetEnemy = _aiAllies[enemy.GetContext().GetRivalIndex()];
             
+            enemy.ContinueNavigation();
+            
             ECSNavigationManager.Instance.UpdateNavMeshAgentTransformDestination(enemy.GetNavMeshAgentComponent(),
                 targetEnemy.GetNavMeshAgentComponent().GetTransformComponent());
         }
 
         private void EnemyAttack(AIEnemy enemy)
         {
+            //HOPING IT'S DONE
             Debug.Log(enemy.name + " Attacking");
             
-            enemy.SetIsAttacking(true);
+            AttackComponent attackComponent = enemy.Attack();
             
-            StartCastingAnAttack(enemy.transform, enemy.GetAttackComponents()[0]);
+            EnemyStartCastingAnAttack(enemy.transform, attackComponent, enemy);
         }
 
         private void EnemyFlee(AIEnemy enemy)
         {
-            //TODO
+            //TODO ENEMY FLEE
+            
+            //enemy.ContinueNavigation();
+            
             Debug.Log(enemy.name + " Fleeing");
         }
 
@@ -442,13 +469,12 @@ namespace Managers
         public void AddAIAlly(AIAlly aiAlly, AIAllyContext aiAllyContext)
         {
             AddAlly(aiAlly);
-            AddAttack(aiAlly.GetAttackComponents(), GameManager.Instance.GetEnemyLayer());
             ECSNavigationManager.Instance.AddNavMeshAgentEntity(aiAlly.GetNavMeshAgentComponent());
         }
 
         private void AddAlly(AIAlly aiAlly)
         {
-            //TODO moral system
+            //TODO MORAL SYSTEM
 
             _aiAllies.Add(aiAlly.GetCombatAgentInstance(), aiAlly);
         }
@@ -617,8 +643,10 @@ namespace Managers
         {
             MoveWholeThreatGroupToAnotherThreatGroup(threatGroupFromWhichTheyCome, threatGroupToMove);
 
-            foreach (uint enemyIndex in _enemiesIndexesInsideThreatGroup[threatGroupFromWhichTheyCome])
+            for (int i = _enemiesIndexesInsideThreatGroup[threatGroupFromWhichTheyCome].Count - 1; i >= 0; i--)
             {
+                uint enemyIndex = _enemiesIndexesInsideThreatGroup[threatGroupFromWhichTheyCome][i];
+                
                 _enemiesIndexesInsideThreatGroup[threatGroupFromWhichTheyCome].Remove(enemyIndex);
                 _enemiesIndexesInsideThreatGroup[threatGroupToMove].Add(enemyIndex);
                 _aiEnemies[enemyIndex].SetCurrentThreatGroup(threatGroupToMove);
@@ -743,18 +771,20 @@ namespace Managers
             return visibleRivals;
         }
 
-        private uint GetClosestRival(IPosition positionComponent,
+        private uint GetClosestRival<TAgent, TContext>(IPosition positionComponent, Dictionary<uint, TAgent> rivalsDictionary,
             List<uint> possibleTargetsAICombatAgentIDs)
+        where TAgent : AICombatAgentEntity<TContext>
+        where TContext : AICombatAgentContext
         {
             uint targetID = 0;
-            AICombatAgentEntity<AICombatAgentContext> currentTarget;
+            TAgent currentTarget;
 
             float targetDistance = 300000000;
             float currentTargetDistance;
 
             for (int i = 0; i < possibleTargetsAICombatAgentIDs.Count; i++)
             {
-                currentTarget = _aiCombatAgentInstanceIDs[possibleTargetsAICombatAgentIDs[i]];
+                currentTarget = rivalsDictionary[possibleTargetsAICombatAgentIDs[i]];
 
                 currentTargetDistance = (currentTarget.transform.position - positionComponent.GetPosition()).magnitude;
 
@@ -772,7 +802,7 @@ namespace Managers
         
         private void OnAllyDefeated(AIAlly aiAlly)
         {
-            //TODO
+            //TODO ON ALLY DEFEATED
             
             OnAgentDefeated<AIEnemy, AIEnemyContext, AIAllyContext>(aiAlly, ref _aiEnemies);
         }
@@ -794,8 +824,6 @@ namespace Managers
         public void OnEnemyDefeated(AIEnemy aiEnemy)
         {
             uint combatAgentInstance = aiEnemy.GetCombatAgentInstance();
-
-            _aiEnemies.Remove(combatAgentInstance);
             
             EraseThreat(combatAgentInstance, aiEnemy.GetThreatComponent(), aiEnemy.GetNavMeshAgentComponent().GetTransformComponent());
 
@@ -805,6 +833,8 @@ namespace Managers
             {
                 OnEnemySeparateFromEnemy(_aiEnemies[enemiesOverlapping[i]], aiEnemy.GetCombatAgentInstance());
             }
+
+            _aiEnemies.Remove(combatAgentInstance);
             
             OnAgentDefeated<AIAlly, AIAllyContext, AIEnemyContext>(aiEnemy, ref _aiAllies);
         }
@@ -822,7 +852,7 @@ namespace Managers
                     continue;
                 }
                 
-                //RequestRival(attackerAndTarget.Key);
+                agent.GetContext().SetHasATarget(false);
             }
         }
 
@@ -849,22 +879,23 @@ namespace Managers
 
         #region Attack Events
 
-        private void StartCastingAnAttack(Transform attackerTransform, AttackComponent attackComponent)
+        private void EnemyStartCastingAnAttack(Transform attackerTransform, AttackComponent attackComponent, AIEnemy enemy)
         {
             if (attackComponent.IsOnCooldown())
             {
+                enemy.GetContext().SetIsAttacking(false);
                 return;
             }
             
             AIAttackCollider attackCollider = _attacksColliders[attackComponent];
             attackCollider.SetParent(attackerTransform);
             attackCollider.gameObject.SetActive(true);
-            StartCoroutine(StartCastTimeCoroutine(attackComponent, attackCollider));
+            StartCoroutine(StartEnemyAttackCastTimeCoroutine(attackComponent, attackCollider, enemy));
         }
 
-        public void PutAttackOnCooldown(AttackComponent attackComponent)
+        public void PutAttackOnCooldown(AttackComponent attackComponent, AIEnemy enemy)
         {
-            StartCoroutine(StartCooldownCoroutine(attackComponent));
+            StartCoroutine(StartCooldownCoroutine(attackComponent, enemy));
         }
 
         #endregion
@@ -926,11 +957,16 @@ namespace Managers
         {
             foreach (KeyValuePair<uint, List<uint>> enemiesInsideThreatGroup in _enemiesIndexesInsideThreatGroup)
             {
+                List<uint> enemiesIDs = enemiesInsideThreatGroup.Value;
+
+                if (enemiesIDs.Count == 0)
+                {
+                    continue;
+                }
+                
                 uint threatGroupIndex = enemiesInsideThreatGroup.Key;
 
                 Vector3 threatGroupBarycenter = _threatGroups[threatGroupIndex].Value.GetPosition();
-
-                List<uint> enemiesIDs = enemiesInsideThreatGroup.Value;
 
                 AIEnemy farthestEnemyFromTheBarycenter = _aiEnemies[enemiesIDs[0]];
 
@@ -953,8 +989,9 @@ namespace Managers
                     farthestEnemyDistanceToBarycenter = currentEnemyDistanceToBarycenter;
                 }
 
-                _threatGroups[threatGroupIndex].Key.groupRadius = 
-                    farthestEnemyDistanceToBarycenter + farthestEnemyFromTheBarycenter.GetContext().GetRadius();
+                _threatGroups[threatGroupIndex].Key.groupRadius =
+                    farthestEnemyDistanceToBarycenter + 
+                    farthestEnemyFromTheBarycenter.GetContext().GetOriginalThreatGroupInfluenceRadius();
             }
         }
 
@@ -1077,20 +1114,42 @@ namespace Managers
         
         #region Attack System
 
-        private IEnumerator StartCastTimeCoroutine(AttackComponent attackComponent, AIAttackCollider attackCollider)
+        private IEnumerator StartEnemyAttackCastTimeCoroutine(AttackComponent attackComponent, 
+            AIAttackCollider attackCollider, AIEnemy enemy)
         {
-            Instance.PutAttackOnCooldown(attackComponent);
             attackComponent.StartCastTime();
             while (attackComponent.IsCasting())
             {
                 attackComponent.DecreaseCurrentCastTime();
                 yield return null;
             }
+
+            if (attackComponent.DoesDamageOverTime())
+            {
+                StartCoroutine(StartDamageOverTime(attackComponent, attackCollider, enemy));
+                yield break;
+            }
             
+            enemy.RotateToNextPathCorner();
+            Instance.PutAttackOnCooldown(attackComponent, enemy);
             attackCollider.Deactivate();
         }
 
-        private IEnumerator StartCooldownCoroutine(AttackComponent attackComponent)
+        private IEnumerator StartDamageOverTime(AttackComponent attackComponent, AIAttackCollider attackCollider, 
+            AIEnemy enemy)
+        {
+            while (attackComponent.DidDamageOverTimeFinished())
+            {
+                attackComponent.DecreaseRemainingTimeDealingDamage();
+                yield return null;
+            }
+           
+            enemy.RotateToNextPathCorner();
+            Instance.PutAttackOnCooldown(attackComponent, enemy);
+            attackCollider.Deactivate();
+        }
+
+        private IEnumerator StartCooldownCoroutine(AttackComponent attackComponent, AIEnemy enemy)
         {
             attackComponent.StartCooldown();
             while (attackComponent.IsOnCooldown())
@@ -1098,6 +1157,8 @@ namespace Managers
                 attackComponent.DecreaseCooldown();
                 yield return null;
             }
+            
+            enemy.OnAttackAvailableAgain(attackComponent);
         }
         
         #endregion
@@ -1121,51 +1182,74 @@ namespace Managers
             }
 
             return points;
-
         }
         
-        private void EvaluateClosesPoint<TContext>(ref Dictionary<AICombatAgentEntity<TContext>, int> FLEE_POINTS_RECORD, 
-            List<Vector3> FLEE_POINTS, AICombatAgentEntity<TContext> combatAgentNeedsToFlee)
-        where TContext : AICombatAgentContext
+        private void EvaluateClosestPoint(AIAlly combatAgentNeedsToFlee)
         {
-            float closestDistance = 300000;
+            if (FLEE_POINTS_RECORD.ContainsKey(combatAgentNeedsToFlee))
+            {
+                return;
+            }
             
             Vector3 agentPosition = combatAgentNeedsToFlee.transform.position;
-            Vector3 destination = new Vector3();
+         
+            Vector3 destination = TERRAIN_POSITIONS[0];            
+            float closestDistance = (destination - agentPosition).magnitude;
 
-            foreach (Vector3 position in FLEE_POINTS)
+            int index = 0;
+
+            for (int i = 0; i < TERRAIN_POSITIONS.Count; i++)
             {
-                float currentDistance = (agentPosition- position).magnitude;
+                Vector3 currentPosition = TERRAIN_POSITIONS[i];
+                
+                float currentDistance = (agentPosition - currentPosition).magnitude;
                 if (currentDistance > closestDistance)
                 {
                     continue;
                 }
 
                 closestDistance = currentDistance;
-                destination = position;
+                destination = currentPosition;
+                index = i;
             }
+            
+            FLEE_POINTS_RECORD.Add(combatAgentNeedsToFlee, index);
             
             ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(combatAgentNeedsToFlee.GetNavMeshAgentComponent(), 
                 new VectorComponent(destination));
-        }
+        } 
 
-        private void UpdateFleeMovement(ref Dictionary<AIAlly, int> FLEE_POINTS_RECORD, 
-            List<Vector3> FLEE_POINTS)
+        private IEnumerator UpdateFleeMovement()
         {
-            foreach (var combatAgentFleeing in FLEE_POINTS_RECORD)
+            while (true)
             {
-                AIAlly combatAgent = combatAgentFleeing.Key;
-                int index = combatAgentFleeing.Value;
-
-                if ((combatAgent.transform.position - FLEE_POINTS[index]).magnitude < 8)
+                Dictionary<AIAlly, int> newIndexes = new Dictionary<AIAlly, int>(); 
+                
+                foreach (var combatAgentFleeing in FLEE_POINTS_RECORD)
                 {
-                    int newIndex = (combatAgentFleeing.Value + 1) % FLEE_POINTS.Count;
+                    AIAlly combatAgent = combatAgentFleeing.Key;
+                    int index = combatAgentFleeing.Value;
+
+                    if ((combatAgent.transform.position - TERRAIN_POSITIONS[index]).magnitude < 8)
+                    {
+                        int newIndex = (combatAgentFleeing.Value + 1) % TERRAIN_POSITIONS.Count;
+                        
+                        newIndexes.Add(combatAgent, newIndex);
+                    }
+                }
+
+                foreach (var VARIABLE in newIndexes)
+                {
+                    AIAlly combatAgent = VARIABLE.Key;
+                    int newIndex = VARIABLE.Value;
 
                     FLEE_POINTS_RECORD[combatAgent] = newIndex;
                     
                     ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(combatAgent.GetNavMeshAgentComponent(), 
-                        new VectorComponent(FLEE_POINTS[newIndex]));
+                        new VectorComponent(TERRAIN_POSITIONS[newIndex]));
                 }
+
+                yield return null;
             }
         }
         //

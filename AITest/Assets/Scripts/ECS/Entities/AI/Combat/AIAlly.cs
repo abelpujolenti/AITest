@@ -50,6 +50,12 @@ namespace ECS.Entities.AI.Combat
                 UpdateVectorToRival();
 
                 UpdateDistancesToThreatGroupsThatThreatMe();
+
+                if (_allyContext.IsAttacking())
+                {
+                    yield return null;
+                    continue;
+                }
             
                 CalculateBestAction();
 
@@ -79,9 +85,7 @@ namespace ECS.Entities.AI.Combat
             }
 
             _threatGroupsThatThreatMe = CombatManager.Instance.FilterThreatGroupsThatThreatMe(GetCombatAgentInstance(), 
-                GetStatWeightComponent(), _allyContext.GetThreatWeightOfTarget(), _visibleRivals);
-            
-            
+                GetStatWeightComponent(), _allyContext.GetThreatGroupOfTarget(), _visibleRivals);
 
             _threatGroupsThatFightAllies = CombatManager.Instance.FilterPerThreatGroupAlliesFighting(this);
         }
@@ -97,11 +101,17 @@ namespace ECS.Entities.AI.Combat
             CombatManager.Instance.CalculateBestAction(this);
         }
 
-        public override void Attack(uint attackIndex)
+        public void Attack()
         {
-            //TODO
+            StopNavigation();
+            //TODO DO BASIC ATTACK
             _allyContext.SetIsAttacking(true);
         }
+
+        /*private IEnumerator StartAttackCooldown()
+        {
+            
+        }*/
 
         public override void OnReceiveDamage(DamageComponent damageComponent)
         {

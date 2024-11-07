@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f0b227231ee4815b8a65ffa5353fe2c, type: 3}
   m_Name: Basic Enemy Attack
   m_EditorClassIdentifier: 
-  damage: 0
+  totalDamage: 0
   height: 5
+  doesRelativePositionChange: 0
   relativePosition: {x: 0, y: 0, z: 0}
   attachToAttacker: 1
   isRelativePositionXCenterOfColliderX: 1
@@ -21,12 +22,12 @@ MonoBehaviour:
   isRelativePositionZCenterOfColliderZ: 0
   minimumRangeCast: 0
   maximumRangeCast: 10
-  timeToCast: 1
-  cooldown: 2.5
-  itLandsInstantly: 1
-  projectileSpeed: 0
+  timeToCast: 20
   doesDamageOverTime: 0
   timeDealingDamage: 0
+  cooldown: 5
+  itLandsInstantly: 1
+  projectileSpeed: 0
   attackAoE:
     aiAttackAoEType: 0
     direction: {x: 0, y: 0, z: 1}

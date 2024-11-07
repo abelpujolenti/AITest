@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using AI.Combat.Ally;
 using Interfaces.AI.UBS.Ally;
 using UnityEngine;
 
@@ -36,6 +37,9 @@ namespace AI.Combat.ScriptableObjects
             float radiusOfAlert) : 
             base(totalHealth, radius, sightMaximumDistance, agentTransform)
         {
+            _repeatableActions.Add((uint)AIAllyAction.CHOOSE_NEW_RIVAL);
+            _repeatableActions.Add((uint)AIAllyAction.ATTACK);
+            
             _basicAttackMaximumRange = basicAttackMaximumRange;
             _basicAttackDamage = basicAttackDamage;
             _basicStressDamage = basicStressDamage;

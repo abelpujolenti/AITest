@@ -14,11 +14,13 @@ namespace UnityEditor
             aiAttack.totalDamage = (uint)EditorGUILayout.IntField("Total Damage", (int)aiAttack.totalDamage);
             aiAttack.minimumRangeCast = EditorGUILayout.FloatField("Minimum Range Cast", aiAttack.minimumRangeCast);
             aiAttack.maximumRangeCast = EditorGUILayout.FloatField("Maximum Range Cast", aiAttack.maximumRangeCast);
-            aiAttack.doesRelativePositionChange = EditorGUILayout.Toggle("Does Relative Position Change", aiAttack.doesRelativePositionChange);
+            aiAttack.doesRelativePositionToCasterChange = 
+                EditorGUILayout.Toggle("Does Relative Position To Caster Change", aiAttack.doesRelativePositionToCasterChange);
 
-            if (!aiAttack.doesRelativePositionChange)
+            if (!aiAttack.doesRelativePositionToCasterChange)
             {
-                aiAttack.relativePosition = EditorGUILayout.Vector3Field("Relative Position", aiAttack.relativePosition);    
+                aiAttack.relativePositionToCaster = 
+                    EditorGUILayout.Vector3Field("Relative Position To Caster", aiAttack.relativePositionToCaster);    
             }
             
             aiAttack.attachToAttacker = EditorGUILayout.Toggle("Attach To Attacker", aiAttack.attachToAttacker);
@@ -40,10 +42,17 @@ namespace UnityEditor
             if (aiAttack.itLandsInstantly)
             {
                 aiAttack.projectileSpeed = 0;
+                aiAttack.doesProjectileExplodeOnAnyContact = false;
+                aiAttack.startRelativePositionToCasterOfTheProjectile = Vector3.zero;
             }
             else
             {
                 aiAttack.projectileSpeed = EditorGUILayout.FloatField("Projectile Speed", aiAttack.projectileSpeed);
+                aiAttack.doesProjectileExplodeOnAnyContact = 
+                    EditorGUILayout.Toggle("Does Projectile Explode On Any Contact", aiAttack.doesProjectileExplodeOnAnyContact);
+
+                aiAttack.startRelativePositionToCasterOfTheProjectile = EditorGUILayout.Vector3Field(
+                    "Start Relative Position To Caster Of The Projectile", aiAttack.startRelativePositionToCasterOfTheProjectile);
             }
 
             aiAttack.attackAoE.aiAttackAoEType = (AIAttackAoEType)EditorGUILayout.EnumPopup("Attack Aoe Type", aiAttack.attackAoE.aiAttackAoEType);

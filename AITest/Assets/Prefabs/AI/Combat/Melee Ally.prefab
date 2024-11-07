@@ -254,5 +254,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _navMeshAgentSpecs: {fileID: 11400000, guid: fbd6b8ac878a9194fb62cdbd901148af, type: 2}
-  _radius: 0
+  _navMeshAgent: {fileID: 6587038640240116687}
   _aiAllySpecs: {fileID: 11400000, guid: cdcc068a4bf0d56478a8c8c170002181, type: 2}

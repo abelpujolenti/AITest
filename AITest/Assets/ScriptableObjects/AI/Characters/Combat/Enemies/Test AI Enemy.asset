@@ -18,5 +18,5 @@ MonoBehaviour:
   flashColor: {r: 1, g: 0, b: 0, a: 0}
   aiAttacks:
   - {fileID: 11400000, guid: 3079695dce5be7e44a152ca6bbebdb4e, type: 2}
-  threatLevel: 5
+  threatLevel: 2
   maximumStress: 10

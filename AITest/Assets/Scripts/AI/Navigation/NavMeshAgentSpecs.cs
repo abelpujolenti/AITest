@@ -16,5 +16,8 @@ namespace AI
         
         [Range(0, 45)]
         public uint maxSlope;
+
+        [Min(1f)] 
+        public float rotationSpeed;
     }
 }
