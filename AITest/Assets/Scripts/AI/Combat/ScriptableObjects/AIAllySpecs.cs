@@ -1,5 +1,5 @@
-﻿using UnityEngine;
-using UnityEngine.Serialization;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace AI.Combat.ScriptableObjects
 {
@@ -7,9 +7,10 @@ namespace AI.Combat.ScriptableObjects
     public class AIAllySpecs : AICombatAgentSpecs
     {
         public readonly AIAgentType aiAgentType = AIAgentType.ALLY;
+
+        [SerializeField] public List<AIAllyAttack> aiAttacks;
         
-        public float basicStressDamage;
         public float moralWeight;
-        [FormerlySerializedAs("radiusToBeAlert")] public float radiusOfAlert;
+        public float radiusOfAlert;
     }
 }

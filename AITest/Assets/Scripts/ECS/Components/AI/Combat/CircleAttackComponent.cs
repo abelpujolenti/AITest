@@ -1,5 +1,4 @@
 ﻿using AI.Combat.ScriptableObjects;
-using Interfaces.AI.Combat;
 
 namespace ECS.Components.AI.Combat
 {
@@ -7,9 +6,9 @@ namespace ECS.Components.AI.Combat
     {
         private float _radius;
 
-        public CircleAttackComponent(AIAttack aiAttack, ICircleAttack aiAttackAoE) : base(aiAttack)
+        public CircleAttackComponent(AIAttack aiAttack) : base(aiAttack)
         {
-            _radius = aiAttackAoE.GetRadius();
+            _radius = aiAttack.attackAoE.GetRadius();
         }
 
         public float GetRadius()

@@ -5,6 +5,7 @@
         FOLLOW_PLAYER,
         CHOOSE_NEW_RIVAL,
         GET_CLOSER_TO_RIVAL,
+        ROTATE,
         ATTACK,
         FLEE,
         DODGE_ATTACK,

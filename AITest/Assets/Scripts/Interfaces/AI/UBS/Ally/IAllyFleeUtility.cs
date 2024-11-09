@@ -3,6 +3,6 @@
 namespace Interfaces.AI.UBS.Ally
 {
     public interface IAllyFleeUtility : IGetDistancesToThreatGroupsThatThreatMe, IGetRadiusOfAlert, IIsInFleeState, 
-        IGetHealth, IGetBasicAttackDamage, IGetMoralWeight, IGetThreatWeightOfTarget, IIsUnderThreat
+        IGetHealth, IGetMoralWeight, IGetThreatWeightOfTarget, IIsUnderThreat
     {}
 }

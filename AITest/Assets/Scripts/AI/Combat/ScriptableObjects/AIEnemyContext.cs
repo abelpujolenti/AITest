@@ -1,11 +1,12 @@
 ﻿using AI.Combat.Enemy;
+using Interfaces.AI.UBS.BaseInterfaces.Property;
 using Interfaces.AI.UBS.Enemy;
 using UnityEngine;
 
 namespace AI.Combat.ScriptableObjects
 {
-    public class AIEnemyContext : AICombatAgentContext, IEnemyPatrolUtility, IEnemyChooseNewRivalUtility, IEnemyGetCloserToRivalUtility,
-        IEnemyAttackUtility, IEnemyFleeUtility
+    public class AIEnemyContext : AICombatAgentContext, IEnemyPatrolUtility, IEnemyChooseNewRivalUtility, 
+        IEnemyGetCloserToRivalUtility, IEnemyAttackUtility, IEnemyFleeUtility, IStunned
     {
         private uint _currentThreatGroup;
         
@@ -14,22 +15,22 @@ namespace AI.Combat.ScriptableObjects
         private float _originalThreatGroupInfluenceRadius;
         private float _maximumStress;
         private float _currentStress;
-        private float _minimumRangeToAttack;
-        private float _maximumRangeToAttack;
 
-        public AIEnemyContext(uint totalHealth, float radius, float sightMaximumDistance, Transform agentTransform, 
-            float threatLevel, float originalThreatGroupInfluenceRadius, float maximumStress, float minimumRangeToAttack, 
-            float maximumRangeToAttack) : base(totalHealth, radius, sightMaximumDistance, agentTransform)
+        private bool _isStunned;
+
+        public AIEnemyContext(uint totalHealth, float radius, float sightMaximumDistance, float minimumRangeToAttack, 
+            float maximumRangeToAttack, Transform agentTransform, float threatLevel, float originalThreatGroupInfluenceRadius, 
+            float maximumStress) : base(totalHealth, radius, sightMaximumDistance, minimumRangeToAttack, 
+            maximumRangeToAttack, agentTransform)
         {
             _repeatableActions.Add((uint)AIEnemyAction.CHOOSE_NEW_RIVAL);
+            _repeatableActions.Add((uint)AIEnemyAction.ROTATE);
             _repeatableActions.Add((uint)AIEnemyAction.ATTACK);
             
             _threatLevel = threatLevel;
             _currentThreatGroupWeight = _threatLevel;
             _originalThreatGroupInfluenceRadius = originalThreatGroupInfluenceRadius;
             _maximumStress = maximumStress;
-            _minimumRangeToAttack = minimumRangeToAttack;
-            _maximumRangeToAttack = maximumRangeToAttack;
         }
 
         public void SetCurrentThreatGroup(uint currentThreatGroup)
@@ -65,6 +66,14 @@ namespace AI.Combat.ScriptableObjects
         public void SetCurrentStress(float currentStress)
         {
             _currentStress = currentStress;
+
+            if (_currentStress < _maximumStress)
+            {
+                return;
+            }
+
+            _isStunned = true;
+            _currentStress = 0;
         }
 
         public float GetCurrentStress()
@@ -72,29 +81,19 @@ namespace AI.Combat.ScriptableObjects
             return _currentStress;
         }
 
-        public void SetMinimumRangeToAttack(float minimumRangeToAttack)
-        {
-            _minimumRangeToAttack = minimumRangeToAttack;
-        }
-
-        public float GetMinimumRangeToAttack()
-        {
-            return _minimumRangeToAttack;
-        }
-
-        public void SetMaximumRangeToAttack(float maximumRangeToAttack)
-        {
-            _maximumRangeToAttack = maximumRangeToAttack;
-        }
-
-        public float GetMaximumRangeToAttack()
-        {
-            return _maximumRangeToAttack;
-        }
-
         public override float GetWeight()
         {
             return _threatLevel;
+        }
+
+        public void SetIsStunned(bool isStunned)
+        {
+            _isStunned = isStunned;
+        }
+
+        public bool IsStunned()
+        {
+            return _isStunned;
         }
     }
 }

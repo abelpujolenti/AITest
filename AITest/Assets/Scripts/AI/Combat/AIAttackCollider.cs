@@ -5,10 +5,12 @@ namespace AI.Combat
     public abstract class AIAttackCollider : MonoBehaviour
     {
         public abstract void SetAttackTargets(int targetsLayerMask);
+        public abstract void StartInflictingDamage();
 
         protected Quaternion _parentRotation;
 
         protected abstract void OnEnable();
+        protected abstract void OnDisable();
 
         public void SetParent(Transform parentTransform)
         {

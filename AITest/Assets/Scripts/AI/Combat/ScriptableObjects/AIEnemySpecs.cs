@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace AI.Combat.ScriptableObjects
 {
@@ -6,6 +7,8 @@ namespace AI.Combat.ScriptableObjects
     public class AIEnemySpecs : AICombatAgentSpecs
     {
         public readonly AIAgentType aiAgentType = AIAgentType.ENEMY;
+
+        [SerializeField] public List<AIAttack> aiAttacks;
 
         public float threatLevel;
         public float maximumStress;

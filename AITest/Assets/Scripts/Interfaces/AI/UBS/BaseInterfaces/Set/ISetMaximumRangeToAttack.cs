@@ -2,6 +2,6 @@
 {
     public interface ISetMaximumRangeToAttack
     {
-        public void SetMaximumRangeAttack(float maximumRangeToAttack);
+        public void SetMaximumRangeToAttack(float maximumRangeToAttack);
     }
 }

@@ -14,22 +14,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   totalDamage: 0
   height: 5
-  doesRelativePositionChange: 0
-  relativePosition: {x: 0, y: 0, z: 0}
+  doesRelativePositionToCasterChange: 0
+  relativePositionToCaster: {x: 0, y: 0, z: 5}
   attachToAttacker: 1
   isRelativePositionXCenterOfColliderX: 1
   isRelativePositionYCenterOfColliderY: 1
-  isRelativePositionZCenterOfColliderZ: 0
+  isRelativePositionZCenterOfColliderZ: 1
   minimumRangeCast: 0
-  maximumRangeCast: 10
-  timeToCast: 20
+  maximumRangeCast: 7
+  timeToCast: 4
   doesDamageOverTime: 0
   timeDealingDamage: 0
-  cooldown: 5
+  cooldown: 0.5
   itLandsInstantly: 1
+  delayBeforeApplyingDamage: 0
+  startRelativePositionToCasterOfTheProjectile: {x: 0, y: 0, z: 0}
   projectileSpeed: 0
+  doesProjectileExplodeOnAnyContact: 0
+  aiAttackAoEType: 0
   attackAoE:
-    aiAttackAoEType: 0
     direction: {x: 0, y: 0, z: 1}
     length: 10
     width: 5

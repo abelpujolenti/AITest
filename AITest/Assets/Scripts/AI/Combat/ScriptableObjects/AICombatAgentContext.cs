@@ -7,8 +7,8 @@ using UnityEngine;
 namespace AI.Combat.ScriptableObjects
 {
     public abstract class AICombatAgentContext : IGetTotalHealth, ILastActionIndex, IHealth, IRivalIndex, IGetRadius,
-        IRivalRadius, IGetSightMaximumDistance, IDistanceToRival, ISeeingARival, ITarget, IFighting, IAttacking, 
-        IVectorToRival, IRivalTransform, IGetAgentTransform, IStatWeight
+        IRivalRadius, IGetSightMaximumDistance, IDistanceToRival, IMinimumRangeToAttack, IMaximumRangeToAttack, 
+        ISeeingARival, ITarget, IFighting, IAttacking, IVectorToRival, IRivalTransform, IGetAgentTransform, IStatWeight
     {
         protected List<uint> _repeatableActions = new List<uint>();
         private uint _lastActionIndex = 10;
@@ -21,6 +21,8 @@ namespace AI.Combat.ScriptableObjects
         private float _rivalRadius;
         private float _sightMaximumDistance;
         private float _distanceToRival;
+        private float _minimumRangeToAttack;
+        private float _maximumRangeToAttack;
 
         private bool _isSeeingARival;
         private bool _hasATarget;
@@ -32,12 +34,15 @@ namespace AI.Combat.ScriptableObjects
         private Transform _agentTransform;
         private Transform _rivalTransform;
 
-        protected AICombatAgentContext(uint totalHealth, float radius, float sightMaximumDistance, Transform agentTransform)
+        protected AICombatAgentContext(uint totalHealth, float radius, float sightMaximumDistance, float minimumRangeToAttack, 
+            float maximumRangeToAttack, Transform agentTransform)
         {
             _totalHealth = totalHealth;
             _health = totalHealth;
             _radius = radius;
             _sightMaximumDistance = sightMaximumDistance != 0 ? sightMaximumDistance : Mathf.Infinity; 
+            _minimumRangeToAttack = minimumRangeToAttack;
+            _maximumRangeToAttack = maximumRangeToAttack;
             _agentTransform = agentTransform;
         }
 
@@ -109,6 +114,26 @@ namespace AI.Combat.ScriptableObjects
         public float GetDistanceToRival()
         {
             return _distanceToRival;
+        }
+
+        public void SetMinimumRangeToAttack(float minimumRangeToAttack)
+        {
+            _minimumRangeToAttack = minimumRangeToAttack;
+        }
+
+        public float GetMinimumRangeToAttack()
+        {
+            return _minimumRangeToAttack;
+        }
+
+        public void SetMaximumRangeToAttack(float maximumRangeToAttack)
+        {
+            _maximumRangeToAttack = maximumRangeToAttack;
+        }
+
+        public float GetMaximumRangeToAttack()
+        {
+            return _maximumRangeToAttack;
         }
 
         public void SetIsSeeingARival(bool isSeeingARival)

@@ -1,7 +1,7 @@
-﻿using Interfaces.AI.UBS.BaseInterfaces.Property;
+﻿using Interfaces.AI.UBS.BaseInterfaces.Get;
 
 namespace Interfaces.AI.UBS.Ally
 {
-    public interface IAllyFollowPlayerUtility : IInRetractState, ISeeingARival
+    public interface IAllyFollowPlayerUtility : IIsInRetractState, IIsSeeingARival
     {}
 }

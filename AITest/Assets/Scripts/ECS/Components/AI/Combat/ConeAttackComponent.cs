@@ -1,5 +1,5 @@
-﻿using AI.Combat.ScriptableObjects;
-using Interfaces.AI.Combat;
+﻿using AI.Combat;
+using AI.Combat.ScriptableObjects;
 using UnityEngine;
 
 namespace ECS.Components.AI.Combat
@@ -10,8 +10,10 @@ namespace ECS.Components.AI.Combat
         private float _radius;
         private float _degrees;
 
-        public ConeAttackComponent(AIAttack aiAttack, IConeAttack aiAttackAoE) : base(aiAttack)
+        public ConeAttackComponent(AIAttack aiAttack) : base(aiAttack)
         {
+            AIAttackAoE aiAttackAoE = aiAttack.attackAoE;
+            
             _direction = aiAttackAoE.GetDirection();
             _radius = aiAttackAoE.GetRadius();
             _degrees = aiAttackAoE.GetDegrees();

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ECS.Components.AI.Combat
 {
-    public abstract class AttackComponent
+    public class AttackComponent
     {
         private uint _totalDamage;
         private float _height;
@@ -22,6 +22,8 @@ namespace ECS.Components.AI.Combat
         private float _currentCooldown = 0;
 
         private bool _itLandsInstantly;
+
+        private float _delayBeforeApplyingDamage;
 
         private Vector3 _startRelativePositionToCasterOfTheProjectile;
 
@@ -51,12 +53,13 @@ namespace ECS.Components.AI.Combat
             _timeToCast = aiAttack.timeToCast;
             _cooldown = aiAttack.cooldown;
             _itLandsInstantly = aiAttack.itLandsInstantly;
+            _delayBeforeApplyingDamage = aiAttack.delayBeforeApplyingDamage;
             _startRelativePositionToCasterOfTheProjectile = aiAttack.startRelativePositionToCasterOfTheProjectile;
             _projectileSpeed = aiAttack.projectileSpeed;
             _doesProjectileExplodeOnAnyContact = aiAttack.doesProjectileExplodeOnAnyContact;
             _doesDamageOverTime = aiAttack.doesDamageOverTime;
             _timeDealingDamage = aiAttack.timeDealingDamage;
-            _aiAttackAoEType = aiAttack.attackAoE.aiAttackAoEType;
+            _aiAttackAoEType = aiAttack.aiAttackAoEType;
         }
 
         public uint GetDamage()
@@ -158,6 +161,11 @@ namespace ECS.Components.AI.Combat
         public bool ItLandsInstantly()
         {
             return _itLandsInstantly;
+        }
+
+        public float GetDelayBeforeApplyingDamage()
+        {
+            return _delayBeforeApplyingDamage;
         }
 
         public Vector3 GetStartRelativePositionToCasterOfTheProjectile()

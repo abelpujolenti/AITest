@@ -1,5 +1,4 @@
 ﻿using System;
-using Interfaces.AI.Combat;
 using UnityEngine;
 
 namespace AI.Combat
@@ -12,10 +11,8 @@ namespace AI.Combat
     }
     
     [Serializable]
-    public class AIAttackAoE : IRectangleAttack, ICircleAttack, IConeAttack 
+    public class AIAttackAoE 
     {
-        public AIAttackAoEType aiAttackAoEType;
-        
         public Vector3 direction;
 
         public float length;

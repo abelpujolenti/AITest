@@ -16,3 +16,4 @@ MonoBehaviour:
   height: 50
   stepHeight: 10
   maxSlope: 30
+  rotationSpeed: 2

@@ -15,6 +15,7 @@ namespace AI.Combat.Enemy
                 new AICombatAgentAction<AIEnemyAction>(AIEnemyAction.PATROL),
                 new AICombatAgentAction<AIEnemyAction>(AIEnemyAction.CHOOSE_NEW_RIVAL),
                 new AICombatAgentAction<AIEnemyAction>(AIEnemyAction.GET_CLOSER_TO_RIVAL),
+                new AICombatAgentAction<AIEnemyAction>(AIEnemyAction.ROTATE),
                 new AICombatAgentAction<AIEnemyAction>(AIEnemyAction.ATTACK),
                 new AICombatAgentAction<AIEnemyAction>(AIEnemyAction.FLEE)
             };
@@ -22,8 +23,9 @@ namespace AI.Combat.Enemy
             actions[0].utilityScore = CalculatePatrolUtility(context);
             actions[1].utilityScore = CalculateLookForRivalUtility(context);
             actions[2].utilityScore = CalculateGetCloserToRivalUtility(context);
-            actions[3].utilityScore = CalculateAttackUtility(context);
-            actions[4].utilityScore = CalculateFleeUtility(context);
+            actions[3].utilityScore = 0.1f;
+            actions[4].utilityScore = CalculateAttackUtility(context);
+            actions[5].utilityScore = CalculateFleeUtility(context);
 
             uint index = 0;
 
@@ -69,8 +71,7 @@ namespace AI.Combat.Enemy
             
             float distanceToRival = enemyGetCloserToRivalUtility.GetDistanceToRival();
 
-            if (enemyGetCloserToRivalUtility.GetMinimumRangeToAttack() < distanceToRival &&
-                enemyGetCloserToRivalUtility.GetMaximumRangeToAttack() > distanceToRival)
+            if (enemyGetCloserToRivalUtility.GetMaximumRangeToAttack() > distanceToRival)
             {
                 return 0;
             }

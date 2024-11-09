@@ -1,7 +1,7 @@
-﻿using Interfaces.AI.UBS.BaseInterfaces.Property;
+﻿using Interfaces.AI.UBS.BaseInterfaces.Get;
 
 namespace Interfaces.AI.UBS.Enemy
 {
-    public interface IEnemyPatrolUtility : ISeeingARival
+    public interface IEnemyPatrolUtility : IIsStunned, IIsSeeingARival
     {}
 }

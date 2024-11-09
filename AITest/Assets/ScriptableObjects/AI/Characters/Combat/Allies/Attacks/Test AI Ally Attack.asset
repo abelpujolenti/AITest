@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 330b79e11fbc4e4c8e2af912d9f9cd87, type: 3}
+  m_Name: Test AI Ally Attack
+  m_EditorClassIdentifier: 
+  totalDamage: 0
+  height: 5
+  doesRelativePositionToCasterChange: 0
+  relativePositionToCaster: {x: 0, y: 0, z: 0}
+  attachToAttacker: 0
+  isRelativePositionXCenterOfColliderX: 1
+  isRelativePositionYCenterOfColliderY: 1
+  isRelativePositionZCenterOfColliderZ: 0
+  minimumRangeCast: 0
+  maximumRangeCast: 10
+  timeToCast: 0.5
+  doesDamageOverTime: 0
+  timeDealingDamage: 0
+  cooldown: 0.5
+  itLandsInstantly: 1
+  delayBeforeApplyingDamage: 0
+  startRelativePositionToCasterOfTheProjectile: {x: 0, y: 0, z: 0}
+  projectileSpeed: 0
+  doesProjectileExplodeOnAnyContact: 0
+  aiAttackAoEType: 0
+  attackAoE:
+    direction: {x: 0, y: 0, z: 1}
+    length: 10
+    width: 5
+    radius: 0
+    degrees: 0
+  stressDamage: 0

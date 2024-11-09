@@ -1,7 +1,7 @@
-﻿using Interfaces.AI.UBS.BaseInterfaces.Property;
+﻿using Interfaces.AI.UBS.BaseInterfaces.Get;
 
 namespace Interfaces.AI.UBS.Ally
 {
-    public interface IAllyHelpAllyUtility : IHealth, IAnotherAllyUnderThreat, IFighting
+    public interface IAllyHelpAllyUtility : IGetHealth, IIsAnotherAllyUnderThreat, IIsFighting
     {}
 }

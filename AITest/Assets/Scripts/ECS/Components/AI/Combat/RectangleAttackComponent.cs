@@ -1,5 +1,5 @@
-﻿using AI.Combat.ScriptableObjects;
-using Interfaces.AI.Combat;
+﻿using AI.Combat;
+using AI.Combat.ScriptableObjects;
 using UnityEngine;
 
 namespace ECS.Components.AI.Combat
@@ -10,8 +10,10 @@ namespace ECS.Components.AI.Combat
         private float _length;
         private float _wideness;
 
-        public RectangleAttackComponent(AIAttack aiAttack, IRectangleAttack aiAttackAoE) : base(aiAttack)
+        public RectangleAttackComponent(AIAttack aiAttack) : base(aiAttack)
         {
+            AIAttackAoE aiAttackAoE = aiAttack.attackAoE;
+            
             _direction = aiAttackAoE.GetDirection();
             _length = aiAttackAoE.GetLength();
             _wideness = aiAttackAoE.GetWideness();

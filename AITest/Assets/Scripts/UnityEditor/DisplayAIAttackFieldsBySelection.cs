@@ -41,12 +41,16 @@ namespace UnityEditor
 
             if (aiAttack.itLandsInstantly)
             {
+                aiAttack.delayBeforeApplyingDamage = 
+                    EditorGUILayout.FloatField("Delay Before Applying Damage", aiAttack.delayBeforeApplyingDamage);
+                
                 aiAttack.projectileSpeed = 0;
                 aiAttack.doesProjectileExplodeOnAnyContact = false;
                 aiAttack.startRelativePositionToCasterOfTheProjectile = Vector3.zero;
             }
             else
             {
+                aiAttack.delayBeforeApplyingDamage = 0;
                 aiAttack.projectileSpeed = EditorGUILayout.FloatField("Projectile Speed", aiAttack.projectileSpeed);
                 aiAttack.doesProjectileExplodeOnAnyContact = 
                     EditorGUILayout.Toggle("Does Projectile Explode On Any Contact", aiAttack.doesProjectileExplodeOnAnyContact);
@@ -55,11 +59,11 @@ namespace UnityEditor
                     "Start Relative Position To Caster Of The Projectile", aiAttack.startRelativePositionToCasterOfTheProjectile);
             }
 
-            aiAttack.attackAoE.aiAttackAoEType = (AIAttackAoEType)EditorGUILayout.EnumPopup("Attack Aoe Type", aiAttack.attackAoE.aiAttackAoEType);
+            aiAttack.aiAttackAoEType = (AIAttackAoEType)EditorGUILayout.EnumPopup("Attack Aoe Type", aiAttack.aiAttackAoEType);
             
             aiAttack.height = EditorGUILayout.FloatField("Height", aiAttack.height);
 
-            switch (aiAttack.attackAoE.aiAttackAoEType)
+            switch (aiAttack.aiAttackAoEType)
             {
                 case AIAttackAoEType.RECTANGLE_AREA:
                     

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace AI.Combat.ScriptableObjects
 {
@@ -11,7 +10,5 @@ namespace AI.Combat.ScriptableObjects
         public float flashTime;
 
         public Color flashColor;
-
-        [SerializeField] public List<AIAttack> aiAttacks;
     }
 }

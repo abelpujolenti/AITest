@@ -12,7 +12,9 @@ using ECS.Entities.AI.Combat;
 using Interfaces.AI.Combat;
 using Interfaces.AI.Navigation;
 using Interfaces.AI.UBS.BaseInterfaces.Get;
+using Unity.AI.Navigation;
 using UnityEngine;
+using Utilities;
 
 namespace Managers
 {
@@ -22,13 +24,19 @@ namespace Managers
 
         public static CombatManager Instance => _instance;
 
+        [SerializeField] private NavMeshSurface _allyNavMeshSurface;
+        [SerializeField] private GameObject _enemyRectangleAttackColliderPrefab;
+        [SerializeField] private GameObject _enemyCircleAttackColliderPrefab;
+
         private Dictionary<AIAgentType, Delegate> _returnTheSameAgentsType = new Dictionary<AIAgentType, Delegate>
         {
             { AIAgentType.ALLY, new Func<List<AIAlly>>(() => 
-                _instance.ReturnAllDictionaryValuesInAList<AIAlly ,AIAllyContext>(_instance._aiAllies)) },
+                _instance.ReturnAllDictionaryValuesInAList<AIAlly ,AIAllyContext, AllyAttackComponent, DamageComponent>(
+                    _instance._aiAllies)) },
             
             { AIAgentType.ENEMY, new Func<List<AIEnemy>>(() => 
-                _instance.ReturnAllDictionaryValuesInAList<AIEnemy, AIEnemyContext>(_instance._aiEnemies)) }
+                _instance.ReturnAllDictionaryValuesInAList<AIEnemy, AIEnemyContext, AttackComponent, AllyDamageComponent>(
+                    _instance._aiEnemies)) }
         };
         
         private Dictionary<uint, AIAlly> _aiAllies = new Dictionary<uint, AIAlly>();
@@ -45,6 +53,7 @@ namespace Managers
             { AIAllyAction.FOLLOW_PLAYER , ally => Instance.AllyFollowPlayer(ally)},
             { AIAllyAction.CHOOSE_NEW_RIVAL , ally => Instance.AllyRequestRival(ally) },
             { AIAllyAction.GET_CLOSER_TO_RIVAL , ally => Instance.AllyGetCloserToEnemy(ally)},
+            { AIAllyAction.ROTATE , ally => ally.RotateToNextPathCorner()},
             { AIAllyAction.ATTACK , ally => Instance.AllyAttack(ally)},
             { AIAllyAction.FLEE , ally => Instance.AllyFlee(ally)},
             { AIAllyAction.DODGE_ATTACK , ally => Instance.AllyDodge(ally)},
@@ -56,12 +65,13 @@ namespace Managers
             { AIEnemyAction.PATROL , enemy => Instance.EnemyPatrol(enemy)},
             { AIEnemyAction.CHOOSE_NEW_RIVAL , enemy => Instance.EnemyRequestRival(enemy)},
             { AIEnemyAction.GET_CLOSER_TO_RIVAL , enemy => Instance.EnemyGetCloserToAlly(enemy)},
+            { AIEnemyAction.ROTATE , enemy => enemy.RotateToNextPathCorner()},
             { AIEnemyAction.ATTACK , enemy => Instance.EnemyAttack(enemy)},
             { AIEnemyAction.FLEE , enemy => Instance.EnemyFlee(enemy)}
         };
 
-        private Dictionary<AttackComponent, AIAttackCollider> _attacksColliders =
-            new Dictionary<AttackComponent, AIAttackCollider>();
+        private Dictionary<AttackComponent, AIEnemyAttackCollider> _enemiesAttacksColliders =
+            new Dictionary<AttackComponent, AIEnemyAttackCollider>();
 
         private Dictionary<AIEnemy, List<uint>> _enemiesOfTheSameThreatGroupOverlappingTriggers =
             new Dictionary<AIEnemy, List<uint>>();
@@ -74,12 +84,17 @@ namespace Managers
         private Dictionary<uint, KeyValuePair<ThreatGroupComponent, VectorComponent>> _threatGroups =
                 new Dictionary<uint, KeyValuePair<ThreatGroupComponent, VectorComponent>>();
 
+        private List<AIEnemyAttackCollider> _enemyAttackCollidersSubscribedToRebakeAllyNavMesh =
+            new List<AIEnemyAttackCollider>();
+
+        private Coroutine _rebakeCoroutine;
+
         private AIAllyUtilityFunction _allyUtilityFunction = new AIAllyUtilityFunction();
         private AIEnemyUtilityFunction _enemyUtilityFunction = new AIEnemyUtilityFunction();
         
         //ERASE!!!
         [SerializeField] private List<GameObject> FLEE_POINTS;
-        [SerializeField] private List<Vector3> TERRAIN_POSITIONS;
+        private List<Vector3> TERRAIN_POSITIONS;
         private Dictionary<AIAlly, int> FLEE_POINTS_RECORD = new Dictionary<AIAlly, int>(); 
         //
 
@@ -107,28 +122,32 @@ namespace Managers
             UpdateThreatGroupsBarycenter();
 
             UpdateThreatGroupsRadius();
-
-            /*_combatSystem.UpdateCombatState(_aiCombatAgentsTargets);
-
-            _fleeSystem.UpdateFleeMovement(ref FLEE_POINTS_RECORD, TERRAIN_POSITIONS);*/
         }
 
         #region UBS
         
-        public List<uint> GetVisibleRivals<TAgent, TRivalContext, TOwnContext>(AICombatAgentEntity<TOwnContext> aiCombatAgent)
-        where TAgent : AICombatAgentEntity<TRivalContext>
-        where TRivalContext : AICombatAgentContext
-        where TOwnContext : AICombatAgentContext
+        public List<uint> GetVisibleRivals<TAgent, TRivalContext, TRivalAttackComponent, TRivalDamageComponent, 
+            TOwnContext, TOwnAttackComponent, TOwnDamageComponent>(
+            AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent> aiCombatAgent)
+        
+            where TAgent : AICombatAgentEntity<TRivalContext, TRivalAttackComponent, TRivalDamageComponent>
+            where TRivalContext : AICombatAgentContext
+            where TRivalAttackComponent : AttackComponent
+            where TRivalDamageComponent : DamageComponent
+            where TOwnContext : AICombatAgentContext
+            where TOwnAttackComponent : AttackComponent
+            where TOwnDamageComponent : DamageComponent
         {
             AIAgentType ownAgentType = aiCombatAgent.GetAIAgentType();
 
             List<uint> visibleRivals = new List<uint>();
 
-            List<AICombatAgentEntity<TRivalContext>> rivals = ReturnAllRivals<TAgent, TRivalContext>(ownAgentType);
+            List<AICombatAgentEntity<TRivalContext, TRivalAttackComponent, TRivalDamageComponent>> rivals = 
+                ReturnAllRivals<TAgent, TRivalContext, TRivalAttackComponent, TRivalDamageComponent>(ownAgentType);
 
             float sightMaximumDistance = aiCombatAgent.GetContext().GetSightMaximumDistance();
 
-            foreach (AICombatAgentEntity<TRivalContext> rival in rivals)
+            foreach (AICombatAgentEntity<TRivalContext, TRivalAttackComponent, TRivalDamageComponent> rival in rivals)
             {
                 if (Physics.Raycast(aiCombatAgent.transform.position, rival.transform.position,
                         sightMaximumDistance, _targetsLayerMask[ownAgentType]))
@@ -161,18 +180,16 @@ namespace Managers
         {
             AIAllyAction allyAction = CalculateBestAction<AIAllyAction, AIAllyContext>(ally.GetContext(), _allyUtilityFunction);
             
-            CheckIfCanPerformGivenAction<AIAlly, AIAllyContext, AIAllyAction>(ally, allyAction, AllyPerformAction);
-            
-            //AllyPerformAction(ally, allyAction);
+            CheckIfCanPerformGivenAction<AIAlly, AIAllyContext, AllyAttackComponent, DamageComponent, AIAllyAction>(
+                ally, allyAction, AllyPerformAction);
         }
 
         public void CalculateBestAction(AIEnemy enemy)
         {
             AIEnemyAction enemyAction = CalculateBestAction<AIEnemyAction, AIEnemyContext>(enemy.GetContext(), _enemyUtilityFunction);
             
-            CheckIfCanPerformGivenAction<AIEnemy, AIEnemyContext, AIEnemyAction>(enemy, enemyAction, EnemyPerformAction);
-            
-            //EnemyPerformAction(enemy, enemyAction);
+            CheckIfCanPerformGivenAction<AIEnemy, AIEnemyContext, AttackComponent, AllyDamageComponent, AIEnemyAction>(
+                enemy, enemyAction, EnemyPerformAction);
         }
 
         private static TAction CalculateBestAction<TAction, TContext>(TContext context, 
@@ -181,11 +198,14 @@ namespace Managers
             return utilityCalculator.GetBestAction(context);
         }
 
-        private static void CheckIfCanPerformGivenAction<TAgent, TContext, TAction>(TAgent agent, TAction agentAction, 
-            Action<TAgent, TAction> action)
-        where TAgent : AICombatAgentEntity<TContext> 
-        where TContext : AICombatAgentContext
-        where TAction : Enum
+        private static void CheckIfCanPerformGivenAction<TAgent, TContext, TAttackComponent, TDamageComponent, TAction>(
+            TAgent agent, TAction agentAction, Action<TAgent, TAction> action)
+        
+            where TAgent : AICombatAgentEntity<TContext, TAttackComponent, TDamageComponent> 
+            where TContext : AICombatAgentContext
+            where TAttackComponent : AttackComponent
+            where TDamageComponent : DamageComponent
+            where TAction : Enum
         {
             TContext context = agent.GetContext();
             
@@ -231,9 +251,12 @@ namespace Managers
                 }
 
                 float totalThreatWeight = threatGroupComponent.threatGroupWeight;
-                
-                totalThreatWeight += _threatGroups[threatGroupOfCurrentTarget].Key.threatGroupWeight * 
-                                    Convert.ToUInt16(currentThreatGroupID != threatGroupOfCurrentTarget);
+
+                if (_threatGroups.ContainsKey(threatGroupOfCurrentTarget))
+                {
+                    totalThreatWeight += _threatGroups[threatGroupOfCurrentTarget].Key.threatGroupWeight * 
+                                         Convert.ToUInt16(currentThreatGroupID != threatGroupOfCurrentTarget);    
+                }
 
                 if (totalThreatWeight < moralWeightComponent.GetWeight())
                 {
@@ -246,7 +269,8 @@ namespace Managers
             return threatGroupsThatThreatMe;
         }
 
-        public uint[] FilterPerThreatGroupAlliesFighting(AICombatAgentEntity<AIAllyContext> combatAgent)
+        public uint[] FilterPerThreatGroupAlliesFighting(
+            AICombatAgentEntity<AIAllyContext, AllyAttackComponent, DamageComponent> combatAgent)
         {
             uint[] whichThreatGroupsAreAlliesFighting = new uint[_aiAllies.Count - 1];
 
@@ -309,8 +333,8 @@ namespace Managers
             }
             else
             {
-                targetId = GetClosestRival<AIEnemy, AIEnemyContext>(navMeshAgentComponent.GetTransformComponent(), 
-                    _aiEnemies, visibleRivals);
+                targetId = GetClosestRival<AIEnemy, AIEnemyContext, AttackComponent, AllyDamageComponent>(
+                    navMeshAgentComponent.GetTransformComponent(), _aiEnemies, visibleRivals);
             }
 
             AIEnemy targetEnemy = _aiEnemies[targetId];
@@ -360,9 +384,69 @@ namespace Managers
 
         private void AllyDodge(AIAlly ally)
         {
-            //TODO ALLY DODGE
+            List<Vector2> dangerZone = ally.GetOncomingEnemiesAttacksCorners();
+
+            Vector3 position = ally.transform.position;
+
+            Vector2 startPosition = new Vector2(position.x, position.z);
+            Vector2 nearestPointToDodge;
+
+            AIAllyContext context = ally.GetContext();
+
+            float radius = context.GetRadius();
+
+            Collider[] colliders;
+
+            int layerMaskToSeek = (int)Math.Pow(2, GameManager.Instance.GetTerrainLayer());
+            int layerMaskToAvoid = (int)Math.Pow(2, GameManager.Instance.GetEnemyAttackZone());
+
+            List<AIEnemyAttackCollider> zonesToRebake = new List<AIEnemyAttackCollider>();
             
-            ally.ContinueNavigation();
+            do
+            {
+                colliders = Array.Empty<Collider>();
+                
+                nearestPointToDodge = GetNearestPointToDodge(dangerZone, startPosition, radius);
+
+                colliders = Physics.OverlapCapsule(new Vector3(nearestPointToDodge.x, 0, nearestPointToDodge.y),
+                    new Vector3(nearestPointToDodge.x, 1.5f, nearestPointToDodge.y), radius, layerMaskToSeek);
+
+                if (colliders.Length == 0)
+                {
+                    continue;
+                }
+
+                colliders = Physics.OverlapCapsule(new Vector3(nearestPointToDodge.x, 0, nearestPointToDodge.y),
+                    new Vector3(nearestPointToDodge.x, 1.5f, nearestPointToDodge.y), radius, layerMaskToAvoid);
+
+                if (colliders.Length == 0)
+                {
+                    break;
+                }
+
+                List<Vector2> newZone = new List<Vector2>();
+                    
+                for (int i = 0; i < colliders.Length; i++)
+                {
+                    AIEnemyAttackCollider enemyAttackCollider = colliders[i].GetComponent<AIEnemyAttackCollider>();
+                    
+                    zonesToRebake.Add(enemyAttackCollider);
+                    
+                    newZone.AddRange(enemyAttackCollider.GetCornerPoints());
+
+                    dangerZone = PolygonUtilities.Union2Polygons(dangerZone, newZone);
+                    
+                    newZone.Clear();
+                }
+
+            } while (true);
+            
+            ally.DodgeAttack(new VectorComponent(new Vector3(nearestPointToDodge.x, position.y, nearestPointToDodge.y)));
+
+            foreach (AIEnemyAttackCollider enemyAttackCollider in zonesToRebake)
+            {
+                SubscribeToRebake(enemyAttackCollider);
+            }
             
             Debug.Log(ally.name + " Dodging");
         }
@@ -412,8 +496,8 @@ namespace Managers
             }
             else
             {
-                targetId = GetClosestRival<AIAlly, AIAllyContext>(navMeshAgentComponent.GetTransformComponent(), 
-                    _aiAllies, visibleRivals);
+                targetId = GetClosestRival<AIAlly, AIAllyContext, AllyAttackComponent, DamageComponent>(
+                    navMeshAgentComponent.GetTransformComponent(), _aiAllies, visibleRivals);
             }
 
             AIAlly targetAlly = _aiAllies[targetId];
@@ -443,7 +527,6 @@ namespace Managers
 
         private void EnemyAttack(AIEnemy enemy)
         {
-            //HOPING IT'S DONE
             Debug.Log(enemy.name + " Attacking");
             
             AttackComponent attackComponent = enemy.Attack();
@@ -455,7 +538,7 @@ namespace Managers
         {
             //TODO ENEMY FLEE
             
-            //enemy.ContinueNavigation();
+            enemy.ContinueNavigation();
             
             Debug.Log(enemy.name + " Fleeing");
         }
@@ -496,7 +579,7 @@ namespace Managers
                 break;
             }
             
-            AddAttack(aiEnemy.GetAttackComponents(), GameManager.Instance.GetAllyLayer());
+            AddEnemyAttack(aiEnemy.GetAttackComponents(), GameManager.Instance.GetAllyLayer());
             ECSNavigationManager.Instance.AddNavMeshAgentEntity(aiEnemy.GetNavMeshAgentComponent());
         }
 
@@ -504,42 +587,43 @@ namespace Managers
         {
             _enemiesOfTheSameThreatGroupOverlappingTriggers.Add(aiEnemy, new List<uint>());
 
-            AddThreat(aiEnemy.GetCombatAgentInstance(), aiEnemy.GetThreatComponent(), aiEnemy.GetNavMeshAgentComponent().GetTransformComponent());
+            AddThreat(aiEnemy.GetCombatAgentInstance(), aiEnemy.GetThreatComponent(), 
+                aiEnemy.GetNavMeshAgentComponent().GetTransformComponent());
             
             _aiEnemies.Add(aiEnemy.GetCombatAgentInstance(), aiEnemy);
         }
 
-        private void AddAttack(List<AttackComponent> attackComponents, int layerTarget)
+        private void AddEnemyAttack(List<AttackComponent> attackComponents, int layerTarget)
         {
             foreach (AttackComponent attackComponent in attackComponents)
             {
-                GameObject colliderObject = new GameObject();
+                GameObject colliderObject = null;
 
                 switch (attackComponent.GetAIAttackAoEType())
                 {
                     case AIAttackAoEType.RECTANGLE_AREA:
-                        AIRectangleAttackCollider rectangleAttackCollider =
-                            colliderObject.AddComponent<AIRectangleAttackCollider>();
+                        colliderObject = Instantiate(_enemyRectangleAttackColliderPrefab);
+                        AIEnemyRectangleAttackCollider enemyRectangleAttackCollider = 
+                            colliderObject.GetComponent<AIEnemyRectangleAttackCollider>();
                         
-                        rectangleAttackCollider.SetRectangleAttackComponent((RectangleAttackComponent)attackComponent);
-                        rectangleAttackCollider.SetAttackTargets((int)Mathf.Pow(2, layerTarget));
-                        _attacksColliders.Add(attackComponent, rectangleAttackCollider);
+                        enemyRectangleAttackCollider.SetRectangleAttackComponent((RectangleAttackComponent)attackComponent);
+                        enemyRectangleAttackCollider.SetAttackTargets((int)Mathf.Pow(2, layerTarget));
+                        _enemiesAttacksColliders.Add(attackComponent, enemyRectangleAttackCollider);
                         break;
 
                     case AIAttackAoEType.CIRCLE_AREA:
-                        AICircleAttackCollider circleAttackCollider =
-                            colliderObject.AddComponent<AICircleAttackCollider>();
-                        
-                        circleAttackCollider.SetCircleAttackComponent((CircleAttackComponent)attackComponent);
-                        circleAttackCollider.SetAttackTargets((int)Mathf.Pow(2, layerTarget));
-                        _attacksColliders.Add(attackComponent, circleAttackCollider);
+                        colliderObject = Instantiate(_enemyCircleAttackColliderPrefab);
+                        AIEnemyCircleAttackCollider enemyCircleAttackCollider = colliderObject.GetComponent<AIEnemyCircleAttackCollider>();
+                        enemyCircleAttackCollider.SetCircleAttackComponent((CircleAttackComponent)attackComponent);
+                        enemyCircleAttackCollider.SetAttackTargets((int)Mathf.Pow(2, layerTarget));
+                        _enemiesAttacksColliders.Add(attackComponent, enemyCircleAttackCollider);
                         break;
 
                     case AIAttackAoEType.CONE_AREA:
-                        AIConeAttackCollider coneAttackCollider = colliderObject.AddComponent<AIConeAttackCollider>();
-                        coneAttackCollider.SetConeAttackComponent((ConeAttackComponent)attackComponent);
-                        coneAttackCollider.SetAttackTargets((int)Mathf.Pow(2, layerTarget));
-                        _attacksColliders.Add(attackComponent, coneAttackCollider);
+                        AIEnemyConeAttackCollider enemyConeAttackCollider = colliderObject.GetComponent<AIEnemyConeAttackCollider>();
+                        enemyConeAttackCollider.SetConeAttackComponent((ConeAttackComponent)attackComponent);
+                        enemyConeAttackCollider.SetAttackTargets((int)Mathf.Pow(2, layerTarget));
+                        _enemiesAttacksColliders.Add(attackComponent, enemyConeAttackCollider);
                         break;
                 }
 
@@ -771,10 +855,13 @@ namespace Managers
             return visibleRivals;
         }
 
-        private uint GetClosestRival<TAgent, TContext>(IPosition positionComponent, Dictionary<uint, TAgent> rivalsDictionary,
-            List<uint> possibleTargetsAICombatAgentIDs)
-        where TAgent : AICombatAgentEntity<TContext>
-        where TContext : AICombatAgentContext
+        private uint GetClosestRival<TAgent, TRivalContext, TRivalAttackComponent, TRivalDamageComponent>(
+            IPosition positionComponent, Dictionary<uint, TAgent> rivalsDictionary, List<uint> possibleTargetsAICombatAgentIDs)
+        
+            where TAgent : AICombatAgentEntity<TRivalContext, TRivalAttackComponent, TRivalDamageComponent>
+            where TRivalContext : AICombatAgentContext
+            where TRivalAttackComponent : AttackComponent
+            where TRivalDamageComponent : DamageComponent
         {
             uint targetID = 0;
             TAgent currentTarget;
@@ -800,14 +887,15 @@ namespace Managers
             return targetID;
         }
         
-        private void OnAllyDefeated(AIAlly aiAlly)
+        public void OnAllyDefeated(AIAlly aiAlly)
         {
             //TODO ON ALLY DEFEATED
             
-            OnAgentDefeated<AIEnemy, AIEnemyContext, AIAllyContext>(aiAlly, ref _aiEnemies);
+            OnAgentDefeated<AIEnemy, AIEnemyContext, AttackComponent, AllyDamageComponent, 
+                AIAllyContext, AllyAttackComponent, DamageComponent>(aiAlly, ref _aiEnemies);
         }
 
-        public void OnEnemyReceiveDamage(uint enemyAgentInstanceID, uint enemyHealth, float enemyStress)
+        public void OnEnemyReceiveDamage(uint enemyAgentInstanceID, uint enemyHealth, float enemyStress, bool isStunned)
         {
             foreach (AIAlly ally in _aiAllies.Values)
             {
@@ -818,6 +906,20 @@ namespace Managers
 
                 ally.SetEnemyHealth(enemyHealth);
                 ally.SetEnemyCurrentStress(enemyStress);
+                ally.SetIsEnemyStunned(isStunned);
+            }
+        }
+
+        public void OnEnemyStunEnds(uint enemyAgentInstanceID)
+        {
+            foreach (AIAlly ally in _aiAllies.Values)
+            {
+                if (ally.GetContext().GetRivalIndex() != enemyAgentInstanceID)
+                {
+                    continue;
+                }
+                
+                ally.SetIsEnemyStunned(false);
             }
         }
 
@@ -836,14 +938,22 @@ namespace Managers
 
             _aiEnemies.Remove(combatAgentInstance);
             
-            OnAgentDefeated<AIAlly, AIAllyContext, AIEnemyContext>(aiEnemy, ref _aiAllies);
+            OnAgentDefeated<AIAlly, AIAllyContext, AllyAttackComponent, DamageComponent, 
+                AIEnemyContext, AttackComponent, AllyDamageComponent>(aiEnemy, ref _aiAllies);
         }
 
-        private void OnAgentDefeated<TAgent, TRivalContext, TOwnContext>(
-            AICombatAgentEntity<TOwnContext> aiCombatAgentDefeated, ref Dictionary<uint, TAgent> agents)
-        where TAgent : AICombatAgentEntity<TRivalContext> 
-        where TRivalContext : AICombatAgentContext
-        where TOwnContext : AICombatAgentContext
+        private void OnAgentDefeated<TAgent, TRivalContext, TRivalAttackComponent, TRivalDamageComponent, 
+            TOwnContext, TOwnAttackComponent, TOwnDamageComponent>(
+            AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent> aiCombatAgentDefeated, 
+            ref Dictionary<uint, TAgent> agents)
+        
+            where TAgent : AICombatAgentEntity<TRivalContext, TRivalAttackComponent, TRivalDamageComponent>
+            where TRivalContext : AICombatAgentContext
+            where TRivalAttackComponent : AttackComponent
+            where TRivalDamageComponent : DamageComponent
+            where TOwnContext : AICombatAgentContext
+            where TOwnAttackComponent : AttackComponent
+            where TOwnDamageComponent : DamageComponent
         {
             foreach (TAgent agent in agents.Values)
             {
@@ -856,21 +966,11 @@ namespace Managers
             }
         }
 
-        public void OnAllyDefeated(uint allyAgentInstanceID)
-        {
-            
-        }
-
-        public void OnEnemyDefeated(uint enemyAgentInstanceID)
-        {
-            
-        }
-
         #endregion
 
         #region Flee Events
 
-        public void RequestSafeSpot(AICombatAgentEntity<AIAllyContext> aiCombatAgentEntity)
+        public void RequestSafeSpot(AICombatAgentEntity<AIAllyContext, AllyAttackComponent, DamageComponent> aiCombatAgentEntity)
         {
             
         }
@@ -879,7 +979,8 @@ namespace Managers
 
         #region Attack Events
 
-        private void EnemyStartCastingAnAttack(Transform attackerTransform, AttackComponent attackComponent, AIEnemy enemy)
+        private void EnemyStartCastingAnAttack(Transform attackerTransform, 
+            AttackComponent attackComponent, AIEnemy enemy)
         {
             if (attackComponent.IsOnCooldown())
             {
@@ -887,13 +988,13 @@ namespace Managers
                 return;
             }
             
-            AIAttackCollider attackCollider = _attacksColliders[attackComponent];
+            AIAttackCollider attackCollider = _enemiesAttacksColliders[attackComponent];
             attackCollider.SetParent(attackerTransform);
             attackCollider.gameObject.SetActive(true);
             StartCoroutine(StartEnemyAttackCastTimeCoroutine(attackComponent, attackCollider, enemy));
         }
 
-        public void PutAttackOnCooldown(AttackComponent attackComponent, AIEnemy enemy)
+        private void PutAttackOnCooldown(AttackComponent attackComponent, AIEnemy enemy)
         {
             StartCoroutine(StartCooldownCoroutine(attackComponent, enemy));
         }
@@ -1101,8 +1202,12 @@ namespace Managers
         
         #region Combat System
 
-        private void UpdateDistanceToRival<TContext>(AICombatAgentEntity<TContext> combatAgent)
-        where TContext : AICombatAgentContext
+        private void UpdateDistanceToRival<TOwnContext, TOwnAttackComponent, TOwnDamageComponent>(
+            AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent> combatAgent)
+            
+            where TOwnContext : AICombatAgentContext
+            where TOwnAttackComponent : AttackComponent
+            where TOwnDamageComponent : DamageComponent
         {
             Vector3 vectorToRival = combatAgent.GetContext().GetRivalTransform().position - combatAgent.transform.position;
             
@@ -1114,23 +1219,29 @@ namespace Managers
         
         #region Attack System
 
-        private IEnumerator StartEnemyAttackCastTimeCoroutine(AttackComponent attackComponent, 
-            AIAttackCollider attackCollider, AIEnemy enemy)
+        private IEnumerator StartEnemyAttackCastTimeCoroutine(AttackComponent attackComponent, AIAttackCollider attackCollider, 
+            AIEnemy enemy)
         {
             attackComponent.StartCastTime();
-            while (attackComponent.IsCasting())
+            while (attackComponent.IsCasting() && !enemy.GetContext().IsStunned())
             {
                 attackComponent.DecreaseCurrentCastTime();
                 yield return null;
             }
 
-            if (attackComponent.DoesDamageOverTime())
+            if (!enemy.GetContext().IsStunned())
             {
-                StartCoroutine(StartDamageOverTime(attackComponent, attackCollider, enemy));
-                yield break;
+                attackCollider.StartInflictingDamage();
+
+                if (attackComponent.DoesDamageOverTime())
+                {
+                    StartCoroutine(StartDamageOverTime(attackComponent, attackCollider, enemy));
+                    yield break;
+                }
+            
+                enemy.RotateToNextPathCorner();
             }
             
-            enemy.RotateToNextPathCorner();
             Instance.PutAttackOnCooldown(attackComponent, enemy);
             attackCollider.Deactivate();
         }
@@ -1255,15 +1366,127 @@ namespace Managers
         //
 
         #endregion
+
+        #region Dodge System
+
+        private Vector2 GetNearestPointToDodge(List<Vector2> polygon, Vector2 point, float radius)
+        {
+            Vector2 closestPoint = Vector2.zero;
+            float shortestDistance = Mathf.Infinity;
+
+            Vector2 start;
+            Vector2 end;
+            Vector2 direction = new Vector2();
+            Vector2 closestPointOnEdge = new Vector2();
+
+            for (int i = 0; i < polygon.Count; i++)
+            {
+                start = polygon[i];
+                end = polygon[(i + 1) % polygon.Count];
+
+                direction = end - start;
+                
+                closestPointOnEdge = GetClosestPointOnLineSegment(start, end, point);
+
+                float distance = Vector2.Distance(point, closestPointOnEdge);
+
+                if (distance >= shortestDistance)
+                {
+                    continue;
+                }
+                
+                shortestDistance = distance;
+                closestPoint = closestPointOnEdge + (new Vector2(-direction.y, direction.x) * (radius * 1.5f));
+            }
+
+            return closestPoint;
+        }
+        
+        private Vector2 GetClosestPointOnLineSegment(Vector2 start, Vector2 end, Vector2 point)
+        {
+            Vector2 line = end - start;
+            float lengthSquared = line.sqrMagnitude;
+
+            float distance = Vector2.Dot(point - start, line) / lengthSquared;
+            distance = Mathf.Clamp01(distance);
+
+            return start + distance * line;
+        }
+
+        public void SubscribeToRebake(AIEnemyAttackCollider enemyAttackCollider)
+        {
+            _enemyAttackCollidersSubscribedToRebakeAllyNavMesh.Add(enemyAttackCollider);
+            
+            if (_rebakeCoroutine != null)
+            {
+                return;
+            }
+
+            _rebakeCoroutine = StartCoroutine(RebakeNavMeshSurfaceCoroutine());
+        }
+
+        private void UnsubscribeToRebake(AIEnemyAttackCollider enemyAttackCollider)
+        {
+            _enemyAttackCollidersSubscribedToRebakeAllyNavMesh.Remove(enemyAttackCollider);
+            _allyNavMeshSurface.BuildNavMesh();
+
+            if (_enemyAttackCollidersSubscribedToRebakeAllyNavMesh.Count != 0)
+            {
+                return;
+            }
+            
+            StopCoroutine(_rebakeCoroutine);
+            _rebakeCoroutine = null;
+        }
+
+        private IEnumerator RebakeNavMeshSurfaceCoroutine()
+        {
+            while (true)
+            {
+                for (int i = _enemyAttackCollidersSubscribedToRebakeAllyNavMesh.Count - 1; i >= 0; i--)
+                {
+                    AIEnemyAttackCollider enemyAttackCollider = _enemyAttackCollidersSubscribedToRebakeAllyNavMesh[i];
+                    
+                    if (!enemyAttackCollider.gameObject.activeSelf)
+                    {
+                        _allyNavMeshSurface.BuildNavMesh();
+                        UnsubscribeToRebake(enemyAttackCollider);                        
+                        continue;
+                    }
+
+                    if (!enemyAttackCollider.IsWalkable())
+                    {
+                        continue;
+                    }
+
+                    if (enemyAttackCollider.HasCombatAgentsTriggering())
+                    {
+                        continue;
+                    }
+
+                    enemyAttackCollider.SetNotWalkable();
+                    _allyNavMeshSurface.BuildNavMesh();
+                }
+                
+                yield return null;    
+            }
+        }
+
+        #endregion
         
         #endregion
 
-        private List<TCombatAgent> ReturnAllDictionaryValuesInAList<TCombatAgent, TContext>(Dictionary<uint, TCombatAgent> agentsDictionary)
-        where TCombatAgent : AICombatAgentEntity<TContext> where TContext : AICombatAgentContext
+        private List<TAgent> ReturnAllDictionaryValuesInAList<TAgent, TOwnContext, TOwnAttackComponent, TOwnDamageComponent>(
+            Dictionary<uint, TAgent> agentsDictionary)
+        
+            where TAgent : AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent>
+            where TOwnContext : AICombatAgentContext
+            where TOwnAttackComponent : AttackComponent
+            where TOwnDamageComponent : DamageComponent
         {
-            List<TCombatAgent> agentsList = new List<TCombatAgent>();
+            List<TAgent> agentsList = new List<TAgent>();
 
-            foreach (TCombatAgent combatAgent in agentsDictionary.Values)
+            foreach (TAgent combatAgent in agentsDictionary.Values)
             {
                 agentsList.Add(combatAgent);
             }
@@ -1271,11 +1494,16 @@ namespace Managers
             return agentsList;
         }
 
-        private List<AICombatAgentEntity<TContext>> ReturnAllRivals<TAgent, TContext>(AIAgentType aiAgentType)
-        where TAgent : AICombatAgentEntity<TContext>
-        where TContext : AICombatAgentContext
+        private List<AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent>> 
+            ReturnAllRivals<TAgent, TOwnContext, TOwnAttackComponent, TOwnDamageComponent>(AIAgentType aiAgentType)
+        
+            where TAgent : AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent>
+            where TOwnContext : AICombatAgentContext
+            where TOwnAttackComponent : AttackComponent
+            where TOwnDamageComponent : DamageComponent
         {
-            List<AICombatAgentEntity<TContext>> combatAgents = new List<AICombatAgentEntity<TContext>>();
+            List<AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent>> combatAgents = 
+                new List<AICombatAgentEntity<TOwnContext, TOwnAttackComponent, TOwnDamageComponent>>();
 
             for (AIAgentType i = 0; i < AIAgentType.ENUM_SIZE; i++)
             {

@@ -14,6 +14,7 @@ namespace Managers
         private int ALLY_TRIGGER_DETECTION = 10;
         private int ENEMY_TRIGGER_DETECTION = 11;
         private int RIVAL_TRIGGER_DETECTION = 12;
+        private int ENEMY_ATTACK_ZONE = 13;
 
         private void Awake()
         {
@@ -57,6 +58,11 @@ namespace Managers
         public int GetRivalTriggerDetectionLayer()
         {
             return RIVAL_TRIGGER_DETECTION;
+        }
+
+        public int GetEnemyAttackZone()
+        {
+            return ENEMY_ATTACK_ZONE;
         }
     }
 }

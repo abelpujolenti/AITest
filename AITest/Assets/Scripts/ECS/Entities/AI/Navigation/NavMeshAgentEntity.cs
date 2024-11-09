@@ -19,6 +19,8 @@ namespace ECS.Entities.AI.Navigation
 
         protected float _rotationSpeed;
 
+        protected bool _isRotating;
+
         private void Awake()
         {
             Setup();
@@ -44,7 +46,21 @@ namespace ECS.Entities.AI.Navigation
 
         public void RotateToNextPathCorner()
         {
+            if (_isRotating)
+            {
+                return;
+            }
+            
             StopNavigation();
+
+            _isRotating = true;
+
+            StartCoroutine(EnsureExistsAPath());
+        }
+
+        private IEnumerator EnsureExistsAPath()
+        {
+            yield return new WaitUntil(() => _navMeshAgent.path.status == 0);
 
             StartCoroutine(RotateToNextPathCornerCoroutine());
         }
@@ -54,12 +70,14 @@ namespace ECS.Entities.AI.Navigation
             Vector3 vectorToNextPathCorner = _navMeshAgent.path.corners[1] - transform.position;
             vectorToNextPathCorner.y = 0;
 
-            while (Vector3.Angle(transform.forward, vectorToNextPathCorner) >= 5f)
+            while (Vector3.Angle(transform.forward, vectorToNextPathCorner) >= 10f)
             {
                 Quaternion rotation = Quaternion.LookRotation(vectorToNextPathCorner);
                 transform.rotation = Quaternion.Lerp(transform.rotation, rotation, _rotationSpeed * Time.deltaTime);
                 yield return null;
             }
+
+            _isRotating = false;
             
             ContinueNavigation();
         }

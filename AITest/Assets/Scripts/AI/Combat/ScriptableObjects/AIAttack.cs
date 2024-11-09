@@ -1,6 +1,5 @@
 ﻿using System;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace AI.Combat.ScriptableObjects
 {
@@ -30,11 +29,15 @@ namespace AI.Combat.ScriptableObjects
 
         public bool itLandsInstantly;
 
+        public float delayBeforeApplyingDamage;
+
         public Vector3 startRelativePositionToCasterOfTheProjectile;
 
         public float projectileSpeed;
 
         public bool doesProjectileExplodeOnAnyContact;
+        
+        public AIAttackAoEType aiAttackAoEType;
         
         public AIAttackAoE attackAoE;
     }

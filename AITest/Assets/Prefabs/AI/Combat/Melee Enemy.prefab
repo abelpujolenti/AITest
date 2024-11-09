@@ -202,7 +202,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
@@ -257,3 +257,4 @@ MonoBehaviour:
   _navMeshAgent: {fileID: 822707446408495367}
   _aiEnemySpecs: {fileID: 11400000, guid: 076492a5609594c47abb6f1e66f6fc3a, type: 2}
   _originalThreatGroupInfluenceCollider: {fileID: 2896661167637748356}
+  _timeStunned: 0
