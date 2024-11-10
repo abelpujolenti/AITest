@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   totalHealth: 10
   sightMaximumDistance: 0
-  flashTime: 0.75
-  flashColor: {r: 1, g: 0, b: 0, a: 0}
-  aiAttacks:
-  - {fileID: 11400000, guid: 3079695dce5be7e44a152ca6bbebdb4e, type: 2}
+  damageFeedbackFlashTime: 0.75
+  damageFeedbackFlashColor: {r: 1, g: 0, b: 0, a: 0}
   threatLevel: 2
   maximumStress: 10
+  stunDuration: 3
+  aiAttacks:
+  - {fileID: 11400000, guid: 3079695dce5be7e44a152ca6bbebdb4e, type: 2}

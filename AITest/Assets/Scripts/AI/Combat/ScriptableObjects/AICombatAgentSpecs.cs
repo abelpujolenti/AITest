@@ -7,8 +7,8 @@ namespace AI.Combat.ScriptableObjects
         public uint  totalHealth;
 
         public float sightMaximumDistance;
-        public float flashTime;
+        public float damageFeedbackFlashTime;
 
-        public Color flashColor;
+        public Color damageFeedbackFlashColor;
     }
 }

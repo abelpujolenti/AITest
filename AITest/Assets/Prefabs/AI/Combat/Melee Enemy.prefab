@@ -222,12 +222,12 @@ NavMeshAgent:
   m_AngularSpeed: 120
   m_StoppingDistance: 7
   m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
+  m_AutoBraking: 0
   m_AutoRepath: 1
   m_Height: 2
   m_BaseOffset: 1
   m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
+  m_ObstacleAvoidanceType: 0
 --- !u!114 &1399199400102419166
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -240,7 +240,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d798df72ea61efa4d9832b32fee1ba96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _color: {r: 0, g: 0.6059277, b: 1, a: 0}
+  color: {r: 0, g: 0.6059277, b: 1, a: 0}
 --- !u!114 &8879279202755734796
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -257,4 +257,3 @@ MonoBehaviour:
   _navMeshAgent: {fileID: 822707446408495367}
   _aiEnemySpecs: {fileID: 11400000, guid: 076492a5609594c47abb6f1e66f6fc3a, type: 2}
   _originalThreatGroupInfluenceCollider: {fileID: 2896661167637748356}
-  _timeStunned: 0

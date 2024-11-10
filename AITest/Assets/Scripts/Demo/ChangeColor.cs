@@ -1,14 +1,15 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Demo
 {
     public class ChangeColor : MonoBehaviour
     {
-        [SerializeField] private Color _color;
+        [FormerlySerializedAs("_color")] public Color color;
         
         void Start()
         {
-            GetComponent<MeshRenderer>().material.color = _color;
+            GetComponent<MeshRenderer>().material.color = color;
         }
     }
 }

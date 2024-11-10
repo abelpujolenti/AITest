@@ -10,6 +10,7 @@ using ECS.Components.AI.Navigation;
 using Interfaces.AI.Combat;
 using Managers;
 using UnityEngine;
+using UnityEngine.AI;
 using Utilities;
 
 namespace ECS.Entities.AI.Combat
@@ -22,7 +23,7 @@ namespace ECS.Entities.AI.Combat
 
         private List<AIEnemyAttackCollider> _oncomingEnemyAttacks = new List<AIEnemyAttackCollider>();
 
-        protected Dictionary<AllyAttackComponent, AIAttackCollider> _attacksColliders =
+        private Dictionary<AllyAttackComponent, AIAttackCollider> _attacksColliders =
             new Dictionary<AllyAttackComponent, AIAttackCollider>();
         
         private uint[] _threatGroupsThatFightAllies = Array.Empty<uint>();
@@ -30,6 +31,10 @@ namespace ECS.Entities.AI.Combat
         private MoralComponent _moralComponent;
         
         private DieComponent _dieComponent;
+
+        private float _faintDuration;
+
+        private Coroutine _faintCoroutine; 
 
         private void Start()
         {
@@ -42,11 +47,12 @@ namespace ECS.Entities.AI.Combat
             
             _moralComponent = new MoralComponent(_aiAllySpecs.moralWeight);
             _dieComponent = new DieComponent();
+            _faintDuration = _aiAllySpecs.faintDuration;
             _context = new AIAllyContext(_aiAllySpecs.totalHealth, capsuleCollider.radius, 
                 _aiAllySpecs.sightMaximumDistance, _minimumRangeToCastAnAttack, _maximumRangeToCastAnAttack, 
                 transform, capsuleCollider.height, _aiAllySpecs.moralWeight, _aiAllySpecs.radiusOfAlert);
             
-            CombatManager.Instance.AddAIAlly(this, _context);
+            CombatManager.Instance.AddAIAlly(this);
             
             InstantiateAttacksColliders();
             
@@ -136,7 +142,21 @@ namespace ECS.Entities.AI.Combat
                     continue;
                 }
 
-                /*if (Vector3.Angle(transform.forward, GetNavMeshAgentComponent().GetNavMeshAgent().destination - transform.position) > 120f)
+                float angleToDestination = Vector3.Angle(transform.forward,
+                    GetNavMeshAgentComponent().GetNavMeshAgent().destination - transform.position);
+
+                NavMeshAgent navMeshAgent = GetNavMeshAgentComponent().GetNavMeshAgent();
+
+                Vector3 destination = navMeshAgent.destination;
+                    
+                /*if (Vector3.Distance(transform.position, destination) < _stoppingDistance && angleToDestination > 15f)
+                {
+                    RotateToGivenPosition(destination);
+                    yield return null;
+                    continue;
+                }*/
+
+                /*if (Vector3.Angle(transform.forward, navMeshAgent.path.corners[1] - transform.position) > 120f)
                 {
                     RotateToNextPathCorner();
                     yield return null;
@@ -260,16 +280,6 @@ namespace ECS.Entities.AI.Combat
 
         public void Attack()
         {
-            StartCoroutine(FaceToAttack());
-        }
-
-        private IEnumerator FaceToAttack()
-        {
-            while (Vector3.Angle(transform.forward, GetContext().GetRivalTransform().position - transform.position) > 5f)
-            {
-                yield return null;
-            }
-
             AllyAttackComponent attackComponent = ReturnNextAttack();
             
             _context.SetIsAttacking(true);
@@ -330,6 +340,9 @@ namespace ECS.Entities.AI.Combat
             AIAttackCollider attackCollider)
         {
             allyAttackComponent.StartCastTime();
+            
+            attackCollider.gameObject.SetActive(true);
+            
             while (allyAttackComponent.IsCasting())
             {
                 allyAttackComponent.DecreaseCurrentCastTime();
@@ -438,7 +451,13 @@ namespace ECS.Entities.AI.Combat
 
             NavMeshAgentComponent navMeshAgentComponent = GetNavMeshAgentComponent();
 
-            navMeshAgentComponent.GetNavMeshAgent().stoppingDistance = 3;
+            navMeshAgentComponent.GetNavMeshAgent().stoppingDistance = 7;
+
+            if (_lastDestination != null)
+            {
+                ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(GetNavMeshAgentComponent(), _lastDestination);
+                return;
+            }
             
             ECSNavigationManager.Instance.UpdateNavMeshAgentTransformDestination(GetNavMeshAgentComponent(), 
                 new TransformComponent(GetContext().GetRivalTransform()));
@@ -448,12 +467,43 @@ namespace ECS.Entities.AI.Combat
         {
             _context.SetHealth(_context.GetHealth() - damageComponent.GetDamage());
 
-            if (_context.GetHealth() != 0) 
+            if (_context.GetHealth() != 0)
             {
+                StartCoroutine(DamageFeedback());
                 return;
             }
             
+            OnDefeated();
+        }
+
+        protected override void OnDefeated()
+        {
             CombatManager.Instance.OnAllyDefeated(this);
+            _faintCoroutine = StartCoroutine(FaintDurationCoroutine());
+        }
+
+        private IEnumerator FaintDurationCoroutine()
+        {
+            float currentTime = 0;
+
+            while (currentTime < _faintDuration)
+            {
+                currentTime += Time.deltaTime;
+                yield return null;
+            }
+            
+            OnDie();
+        }
+
+        private void OnDie()
+        {
+            ECSNavigationManager.Instance.RemoveNavMeshAgentEntity(GetNavMeshAgentComponent());
+            Destroy(gameObject);
+        }
+
+        private void OnBeingRescued()
+        {
+            StopCoroutine(_faintCoroutine);
         }
 
         public override AIAgentType GetAIAgentType()

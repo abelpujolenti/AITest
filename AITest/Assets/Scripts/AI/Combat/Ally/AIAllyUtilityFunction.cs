@@ -26,7 +26,7 @@ namespace AI.Combat.Ally
             actions[0].utilityScore = CalculateFollowPlayerUtility(context);
             actions[1].utilityScore = CalculateChooseNewRivalUtility(context);
             actions[2].utilityScore = CalculateGetCloserToRivalUtility(context);
-            actions[3].utilityScore = 0.0f;
+            actions[3].utilityScore = 0.1f;
             actions[4].utilityScore = CalculateAttackUtility(context);
             actions[5].utilityScore = CalculateFleeUtility(context);
             actions[6].utilityScore = CalculateDodgeAttackUtility(context);

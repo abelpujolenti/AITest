@@ -93,10 +93,21 @@ namespace Managers
         private AIEnemyUtilityFunction _enemyUtilityFunction = new AIEnemyUtilityFunction();
         
         //ERASE!!!
+        [SerializeField] private bool _showActionsDebugLogs;
         [SerializeField] private List<GameObject> FLEE_POINTS;
         private List<Vector3> TERRAIN_POSITIONS;
         private Dictionary<AIAlly, int> FLEE_POINTS_RECORD = new Dictionary<AIAlly, int>(); 
         //
+
+        private void ShowActionDebugLogs(string message)
+        {
+            if (!_showActionsDebugLogs)
+            {
+                return;
+            }
+            
+            Debug.Log(message);
+        }
 
         private void Awake()
         {
@@ -298,14 +309,16 @@ namespace Managers
         private void AllyFollowPlayer(AIAlly ally)
         {
             //TODO FOLLOW PLAYER
-            Debug.Log(ally.name + " Following Player");
+            ShowActionDebugLogs(ally.name + " Following Player");
+            //Debug.Log(ally.name + " Following Player");
         }
 
         private void AllyRequestRival(AIAlly ally)
         {
             List<uint> visibleRivals = ally.GetVisibleRivals();
             
-            Debug.Log(ally.name + " Requesting Rival");
+            ShowActionDebugLogs(ally.name + " Requesting Rival");
+            //Debug.Log(ally.name + " Requesting Rival");
             
             if (visibleRivals.Count == 0)
             {
@@ -354,19 +367,20 @@ namespace Managers
 
         private void AllyGetCloserToEnemy(AIAlly ally)
         {
-            Debug.Log(ally.name + " Getting Closer To Rival");
+            ShowActionDebugLogs(ally.name + " Getting Closer To Rival");
+            //Debug.Log(ally.name + " Getting Closer To Rival");
 
             AIEnemy targetEnemy = _aiEnemies[ally.GetContext().GetRivalIndex()];
             
             ally.ContinueNavigation();
             
-            ECSNavigationManager.Instance.UpdateNavMeshAgentTransformDestination(ally.GetNavMeshAgentComponent(),
-                targetEnemy.GetNavMeshAgentComponent().GetTransformComponent());
+            ally.SetDestination(targetEnemy.GetNavMeshAgentComponent().GetTransformComponent());
         }
 
         private void AllyAttack(AIAlly ally)
         {
-            Debug.Log(ally.name + " Attacking");
+            ShowActionDebugLogs(ally.name + " Attacking");
+            //Debug.Log(ally.name + " Attacking");
             
             ally.Attack();
         }
@@ -379,7 +393,8 @@ namespace Managers
             
             EvaluateClosestPoint(ally);
             
-            Debug.Log(ally.name + " Fleeing");
+            ShowActionDebugLogs(ally.name + " Fleeing");
+            //Debug.Log(ally.name + " Fleeing");
         }
 
         private void AllyDodge(AIAlly ally)
@@ -448,7 +463,8 @@ namespace Managers
                 SubscribeToRebake(enemyAttackCollider);
             }
             
-            Debug.Log(ally.name + " Dodging");
+            ShowActionDebugLogs(ally.name + " Dodging");
+            //Debug.Log(ally.name + " Dodging");
         }
 
         private void AllyHelpAnotherAlly(AIAlly ally)
@@ -457,7 +473,8 @@ namespace Managers
             
             ally.ContinueNavigation();
             
-            Debug.Log(ally.name + " Helping another ally");
+            ShowActionDebugLogs(ally.name + " Helping another ally");
+            //Debug.Log(ally.name + " Helping another ally");
         }
 
         #endregion
@@ -472,14 +489,16 @@ namespace Managers
         private void EnemyPatrol(AIEnemy enemy)
         {
             //TODO ENEMY PATROL
-            Debug.Log(enemy.name + " Patrolling");
+            ShowActionDebugLogs(enemy.name + " Patrolling");
+            //Debug.Log(enemy.name + " Patrolling");
         }
 
         private void EnemyRequestRival(AIEnemy enemy)
         {
             List<uint> visibleRivals = enemy.GetVisibleRivals();
             
-            Debug.Log(enemy.name + " Requesting Rival");
+            ShowActionDebugLogs(enemy.name + " Requesting Rival");
+            //Debug.Log(enemy.name + " Requesting Rival");
 
             if (visibleRivals.Count == 0)
             {
@@ -515,19 +534,20 @@ namespace Managers
 
         private void EnemyGetCloserToAlly(AIEnemy enemy)
         {
-            Debug.Log(enemy.name + " Getting Closer To Rival");
+            ShowActionDebugLogs(enemy.name + " Getting Closer To Rival");
+            //Debug.Log(enemy.name + " Getting Closer To Rival");
 
             AIAlly targetEnemy = _aiAllies[enemy.GetContext().GetRivalIndex()];
             
             enemy.ContinueNavigation();
             
-            ECSNavigationManager.Instance.UpdateNavMeshAgentTransformDestination(enemy.GetNavMeshAgentComponent(),
-                targetEnemy.GetNavMeshAgentComponent().GetTransformComponent());
+            enemy.SetDestination(targetEnemy.GetNavMeshAgentComponent().GetTransformComponent());
         }
 
         private void EnemyAttack(AIEnemy enemy)
         {
-            Debug.Log(enemy.name + " Attacking");
+            ShowActionDebugLogs(enemy.name + " Attacking");
+            //Debug.Log(enemy.name + " Attacking");
             
             AttackComponent attackComponent = enemy.Attack();
             
@@ -540,7 +560,8 @@ namespace Managers
             
             enemy.ContinueNavigation();
             
-            Debug.Log(enemy.name + " Fleeing");
+            ShowActionDebugLogs(enemy.name + " Fleeing");
+            //Debug.Log(enemy.name + " Fleeing");
         }
 
         #endregion
@@ -549,10 +570,9 @@ namespace Managers
 
         #region Add Combat Agent
 
-        public void AddAIAlly(AIAlly aiAlly, AIAllyContext aiAllyContext)
+        public void AddAIAlly(AIAlly aiAlly)
         {
             AddAlly(aiAlly);
-            ECSNavigationManager.Instance.AddNavMeshAgentEntity(aiAlly.GetNavMeshAgentComponent());
         }
 
         private void AddAlly(AIAlly aiAlly)
@@ -580,7 +600,6 @@ namespace Managers
             }
             
             AddEnemyAttack(aiEnemy.GetAttackComponents(), GameManager.Instance.GetAllyLayer());
-            ECSNavigationManager.Instance.AddNavMeshAgentEntity(aiEnemy.GetNavMeshAgentComponent());
         }
 
         private void AddEnemy(AIEnemy aiEnemy)
@@ -963,6 +982,7 @@ namespace Managers
                 }
                 
                 agent.GetContext().SetHasATarget(false);
+                ECSNavigationManager.Instance.UpdateNavMeshAgentTransformDestination(agent.GetNavMeshAgentComponent(), null);
             }
         }
 
@@ -1326,8 +1346,7 @@ namespace Managers
             
             FLEE_POINTS_RECORD.Add(combatAgentNeedsToFlee, index);
             
-            ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(combatAgentNeedsToFlee.GetNavMeshAgentComponent(), 
-                new VectorComponent(destination));
+            combatAgentNeedsToFlee.SetDestination(new VectorComponent(destination));
         } 
 
         private IEnumerator UpdateFleeMovement()
@@ -1356,8 +1375,7 @@ namespace Managers
 
                     FLEE_POINTS_RECORD[combatAgent] = newIndex;
                     
-                    ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(combatAgent.GetNavMeshAgentComponent(), 
-                        new VectorComponent(TERRAIN_POSITIONS[newIndex]));
+                    combatAgent.SetDestination(new VectorComponent(TERRAIN_POSITIONS[newIndex]));
                 }
 
                 yield return null;

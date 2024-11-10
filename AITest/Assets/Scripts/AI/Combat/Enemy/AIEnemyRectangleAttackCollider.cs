@@ -32,6 +32,15 @@ namespace AI.Combat.Enemy
             transform.parent = null;
         }
 
+        protected override void OnDisable()
+        {
+            foreach (AIAlly ally in _combatAgentsTriggering)
+            {
+                ally.FreeOfWarnArea(_rectangleAttackComponent, this);
+            }
+            base.OnDisable();
+        }
+
         private void Rotate()
         {
             transform.rotation = 

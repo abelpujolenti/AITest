@@ -3,9 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using AI;
 using AI.Combat.ScriptableObjects;
+using Demo;
 using ECS.Components.AI.Combat;
+using ECS.Components.AI.Navigation;
 using ECS.Entities.AI.Navigation;
 using Interfaces.AI.Combat;
+using Managers;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -32,7 +35,11 @@ namespace ECS.Entities.AI.Combat
 
         protected IGroup _groupComponent;
 
+        protected VectorComponent _lastDestination;
+
         private Coroutine _updateCoroutine;
+
+        protected float _stoppingDistance = 7;
 
         protected float _minimumRangeToCastAnAttack;
         protected float _maximumRangeToCastAnAttack;
@@ -52,21 +59,19 @@ namespace ECS.Entities.AI.Combat
             _updateCoroutine = null;
         }
 
-        protected override IEnumerator RotateToNextPathCornerCoroutine()
+        protected override IEnumerator RotateToGivenPositionCoroutine(Vector3 position)
         {
-            Vector3 vectorToNextPathCorner;
+            Transform ownTransform = transform;
+            
+            Vector3 vectorToNextPathCorner = position - ownTransform.position;
+            vectorToNextPathCorner.y = 0;
             do
             {
-                Transform ownTransform = transform;
-                
-                vectorToNextPathCorner = _navMeshAgent.path.corners[1] - ownTransform.position;
-                vectorToNextPathCorner.y = 0;
-                
                 Quaternion rotation = Quaternion.LookRotation(vectorToNextPathCorner);
-                transform.rotation = Quaternion.Lerp(ownTransform.rotation, rotation, _rotationSpeed * Time.deltaTime);
+                transform.rotation = Quaternion.Slerp(ownTransform.rotation, rotation, _rotationSpeed * Time.deltaTime);
                 yield return null;
                 
-            } while (Vector3.Angle(transform.forward, vectorToNextPathCorner) >= 30f);
+            } while (Vector3.Angle(transform.forward, vectorToNextPathCorner) >= 15f);
 
             _isRotating = false;
             
@@ -82,8 +87,29 @@ namespace ECS.Entities.AI.Combat
             _combatAgentInstanceID = (uint)gameObject.GetInstanceID();
             
             _damageFeedbackComponent = new DamageFeedbackComponent(GetComponent<MeshRenderer>(), 
-                aiCombatAgentSpecs.flashTime, aiCombatAgentSpecs.flashColor);
+                aiCombatAgentSpecs.damageFeedbackFlashTime, aiCombatAgentSpecs.damageFeedbackFlashColor);
         }
+
+        protected IEnumerator DamageFeedback()
+        {
+            float flashTime = _damageFeedbackComponent.GetFlashTime();
+            float currentTime = 0;
+
+            Color originalColor = GetComponent<ChangeColor>().color;
+
+            _damageFeedbackComponent.GetMeshRenderer().material.color = _damageFeedbackComponent.GetFlashColor();
+
+            while (currentTime < flashTime)
+            {
+                currentTime += Time.deltaTime;
+                
+                yield return null;
+            }
+
+            _damageFeedbackComponent.GetMeshRenderer().material.color = originalColor;
+        }
+
+        protected abstract void OnDefeated();
 
         protected void CalculateMinimumAndMaximumRangeToAttacks(List<TAttackComponent> attacks)
         {
@@ -224,6 +250,18 @@ namespace ECS.Entities.AI.Combat
             return _groupComponent;
         }
 
+        public void SetDestination(TransformComponent transformComponent)
+        {
+            _lastDestination = null;
+            ECSNavigationManager.Instance.UpdateNavMeshAgentTransformDestination(GetNavMeshAgentComponent(), transformComponent);
+        }
+
+        public void SetDestination(VectorComponent vectorComponent)
+        {
+            _lastDestination = vectorComponent;
+            ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(GetNavMeshAgentComponent(), _lastDestination);
+        }
+
         protected void UpdateVectorToRival()
         {
             TContext context = GetContext();
@@ -238,7 +276,7 @@ namespace ECS.Entities.AI.Combat
             context.SetVectorToRival(rivalPosition - transform.position);
         }
 
-        protected void UpdateMinimumRangeToCast(List<float> minimumRangesInsideCurrentRange)
+        private void UpdateMinimumRangeToCast(List<float> minimumRangesInsideCurrentRange)
         {
             float newMinimumRange = minimumRangesInsideCurrentRange[0];
 
@@ -257,7 +295,7 @@ namespace ECS.Entities.AI.Combat
             GetContext().SetMinimumRangeToAttack(newMinimumRange);
         }
 
-        protected void UpdateMaximumRangeToCast(List<float> maximumRangesInsideCurrentRange)
+        private void UpdateMaximumRangeToCast(List<float> maximumRangesInsideCurrentRange)
         {
             float newMaximumRange = maximumRangesInsideCurrentRange[0];
 
@@ -274,11 +312,6 @@ namespace ECS.Entities.AI.Combat
             }
             
             GetContext().SetMaximumRangeToAttack(newMaximumRange);
-        }
-
-        public void DebugMessage(string damage,  string attackerName)
-        {
-            Debug.Log(name + " gonna receive " + damage + " damage by " + attackerName);
         }
     }
 }

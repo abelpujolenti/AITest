@@ -48,6 +48,11 @@ namespace Managers
             _navMeshAgentDestinations.Add(navMeshAgentComponent, null);
         }
 
+        public void RemoveNavMeshAgentEntity(NavMeshAgentComponent navMeshAgentComponent)
+        {
+            _navMeshAgentDestinations.Remove(navMeshAgentComponent);
+        }
+
         public void UpdateNavMeshAgentVectorDestination(NavMeshAgentComponent navMeshAgentComponent, 
             VectorComponent vectorComponent)
         {

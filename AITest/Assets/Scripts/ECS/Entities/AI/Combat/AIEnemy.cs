@@ -16,8 +16,6 @@ namespace ECS.Entities.AI.Combat
 
         [SerializeField] private SphereCollider _originalThreatGroupInfluenceCollider;
 
-        [SerializeField] private float _timeStunned;
-
         private List<uint> _overlappingEnemies = new List<uint>();
 
         private ThreatComponent _threatComponent;
@@ -33,7 +31,8 @@ namespace ECS.Entities.AI.Combat
             
             _context = new AIEnemyContext(_aiEnemySpecs.totalHealth, GetComponent<CapsuleCollider>().radius, 
                 _aiEnemySpecs.sightMaximumDistance, _minimumRangeToCastAnAttack, _maximumRangeToCastAnAttack, 
-                transform, _aiEnemySpecs.threatLevel, _originalThreatGroupInfluenceCollider.radius, _aiEnemySpecs.maximumStress);
+                transform, _aiEnemySpecs.threatLevel, _originalThreatGroupInfluenceCollider.radius, _aiEnemySpecs.maximumStress, 
+                _aiEnemySpecs.stunDuration);
             
             CombatManager.Instance.AddAIEnemy(this, _context);
             
@@ -130,7 +129,7 @@ namespace ECS.Entities.AI.Combat
 
             if (health == 0)
             {
-                CombatManager.Instance.OnEnemyDefeated(this);
+                OnDefeated();
                 return;
             }
             
@@ -140,10 +139,14 @@ namespace ECS.Entities.AI.Combat
             {
                 _context.SetCurrentStress(_context.GetCurrentStress() + damageComponent.GetStressDamage());
                 isStunned = _context.IsStunned();
-
+                
                 if (isStunned)
                 {
                     StartCoroutine(StunDuration());
+                }
+                else
+                {
+                    StartCoroutine(DamageFeedback());
                 }
                 
                 CombatManager.Instance.OnEnemyReceiveDamage(combatAgentInstanceID, health, _context.GetCurrentStress(), isStunned);
@@ -153,15 +156,29 @@ namespace ECS.Entities.AI.Combat
             CombatManager.Instance.OnEnemyReceiveDamage(combatAgentInstanceID, health, _context.GetCurrentStress(), true);
         }
 
+        protected override void OnDefeated()
+        {
+            CombatManager.Instance.OnEnemyDefeated(this);
+            ECSNavigationManager.Instance.RemoveNavMeshAgentEntity(GetNavMeshAgentComponent());
+            Destroy(gameObject);
+        }
+
         private IEnumerator StunDuration()
         {
+            float stunDuration = GetContext().GetStunDuration();
             float time = 0;
+
+            _damageFeedbackComponent.GetMeshRenderer().material.color = new Color(0.71f, 0, 0.63f);
             
-            while (time < _timeStunned)
+            while (time < stunDuration)
             {
                 time += Time.deltaTime;
                 yield return null;
             }
+            
+            GetContext().SetIsStunned(false);
+            
+            _damageFeedbackComponent.GetMeshRenderer().material.color = Color.red;
             
             RotateToNextPathCorner();
             CombatManager.Instance.OnEnemyStunEnds(GetCombatAgentInstance());

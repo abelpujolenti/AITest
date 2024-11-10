@@ -222,12 +222,12 @@ NavMeshAgent:
   m_AngularSpeed: 120
   m_StoppingDistance: 7
   m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
+  m_AutoBraking: 0
   m_AutoRepath: 1
   m_Height: 2
   m_BaseOffset: 1
   m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
+  m_ObstacleAvoidanceType: 0
 --- !u!114 &4213802000824375283
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -240,7 +240,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d798df72ea61efa4d9832b32fee1ba96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _color: {r: 0, g: 1, b: 0.05001211, a: 0}
+  color: {r: 0, g: 1, b: 0.05001211, a: 0}
 --- !u!114 &8327968644543808903
 MonoBehaviour:
   m_ObjectHideFlags: 0

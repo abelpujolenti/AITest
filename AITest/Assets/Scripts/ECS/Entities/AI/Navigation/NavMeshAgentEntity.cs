@@ -44,6 +44,11 @@ namespace ECS.Entities.AI.Navigation
             _navMeshAgentComponent.GetNavMeshAgent().isStopped = true;
         }
 
+        public void RotateToGivenPosition(Vector3 position)
+        {
+            StartCoroutine(RotateToGivenPositionCoroutine(position));
+        }
+
         public void RotateToNextPathCorner()
         {
             if (_isRotating)
@@ -55,25 +60,30 @@ namespace ECS.Entities.AI.Navigation
 
             _isRotating = true;
 
-            StartCoroutine(EnsureExistsAPath());
+            StartCoroutine(EnsureAPathExists());
         }
 
-        private IEnumerator EnsureExistsAPath()
+        private IEnumerator EnsureAPathExists()
         {
-            yield return new WaitUntil(() => _navMeshAgent.path.status == 0);
+            while (_navMeshAgent.path.corners.Length <= 0)
+            {
+                yield return null;
+            }
 
-            StartCoroutine(RotateToNextPathCornerCoroutine());
+            StartCoroutine(RotateToGivenPositionCoroutine(_navMeshAgent.path.corners[1]));
         }
 
-        protected virtual IEnumerator RotateToNextPathCornerCoroutine()
+        protected virtual IEnumerator RotateToGivenPositionCoroutine(Vector3 position)
         {
-            Vector3 vectorToNextPathCorner = _navMeshAgent.path.corners[1] - transform.position;
+            Transform ownTransform = transform;
+            
+            Vector3 vectorToNextPathCorner = position - ownTransform.position;
             vectorToNextPathCorner.y = 0;
 
-            while (Vector3.Angle(transform.forward, vectorToNextPathCorner) >= 10f)
+            while (Vector3.Angle(ownTransform.forward, vectorToNextPathCorner) >= 10f)
             {
                 Quaternion rotation = Quaternion.LookRotation(vectorToNextPathCorner);
-                transform.rotation = Quaternion.Lerp(transform.rotation, rotation, _rotationSpeed * Time.deltaTime);
+                ownTransform.rotation = Quaternion.Slerp(ownTransform.rotation, rotation, _rotationSpeed * Time.deltaTime);
                 yield return null;
             }
 

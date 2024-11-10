@@ -15,12 +15,13 @@ namespace AI.Combat.ScriptableObjects
         private float _originalThreatGroupInfluenceRadius;
         private float _maximumStress;
         private float _currentStress;
+        private float _stunDuration;
 
         private bool _isStunned;
 
         public AIEnemyContext(uint totalHealth, float radius, float sightMaximumDistance, float minimumRangeToAttack, 
             float maximumRangeToAttack, Transform agentTransform, float threatLevel, float originalThreatGroupInfluenceRadius, 
-            float maximumStress) : base(totalHealth, radius, sightMaximumDistance, minimumRangeToAttack, 
+            float maximumStress, float stunDuration) : base(totalHealth, radius, sightMaximumDistance, minimumRangeToAttack, 
             maximumRangeToAttack, agentTransform)
         {
             _repeatableActions.Add((uint)AIEnemyAction.CHOOSE_NEW_RIVAL);
@@ -31,6 +32,7 @@ namespace AI.Combat.ScriptableObjects
             _currentThreatGroupWeight = _threatLevel;
             _originalThreatGroupInfluenceRadius = originalThreatGroupInfluenceRadius;
             _maximumStress = maximumStress;
+            _stunDuration = stunDuration;
         }
 
         public void SetCurrentThreatGroup(uint currentThreatGroup)
@@ -81,9 +83,9 @@ namespace AI.Combat.ScriptableObjects
             return _currentStress;
         }
 
-        public override float GetWeight()
+        public float GetStunDuration()
         {
-            return _threatLevel;
+            return _stunDuration;
         }
 
         public void SetIsStunned(bool isStunned)
@@ -94,6 +96,11 @@ namespace AI.Combat.ScriptableObjects
         public bool IsStunned()
         {
             return _isStunned;
+        }
+
+        public override float GetWeight()
+        {
+            return _threatLevel;
         }
     }
 }

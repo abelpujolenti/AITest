@@ -7,10 +7,11 @@ namespace AI.Combat.ScriptableObjects
     public class AIAllySpecs : AICombatAgentSpecs
     {
         public readonly AIAgentType aiAgentType = AIAgentType.ALLY;
-
-        [SerializeField] public List<AIAllyAttack> aiAttacks;
         
         public float moralWeight;
         public float radiusOfAlert;
+        public readonly float faintDuration = 10;
+
+        [SerializeField] public List<AIAllyAttack> aiAttacks;
     }
 }

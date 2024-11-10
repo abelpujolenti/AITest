@@ -8,9 +8,11 @@ namespace AI.Combat.ScriptableObjects
     {
         public readonly AIAgentType aiAgentType = AIAgentType.ENEMY;
 
-        [SerializeField] public List<AIAttack> aiAttacks;
-
         public float threatLevel;
         public float maximumStress;
+        public float stunDuration;
+
+        [SerializeField] public List<AIAttack> aiAttacks;
+
     }
 }
