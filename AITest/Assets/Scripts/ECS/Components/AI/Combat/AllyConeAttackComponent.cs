@@ -10,7 +10,7 @@ namespace ECS.Components.AI.Combat
         private float _radius;
         private float _degrees;
 
-        public AllyConeAttackComponent(AIAllyAttack aiAttack) : base(aiAttack)
+        public AllyConeAttackComponent(uint allyID, AIAllyAttack aiAttack) : base(allyID, aiAttack)
         {
             AIAttackAoE aiAttackAoE = aiAttack.attackAoE;
             

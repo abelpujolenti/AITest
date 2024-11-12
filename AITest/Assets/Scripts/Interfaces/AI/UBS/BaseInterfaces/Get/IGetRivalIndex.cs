@@ -2,6 +2,6 @@
 {
     public interface IGetRivalIndex
     {
-        public uint GetRivalIndex();
+        public uint GetRivalID();
     }
 }

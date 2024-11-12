@@ -3,6 +3,6 @@ using Interfaces.AI.UBS.BaseInterfaces.Set;
 
 namespace Interfaces.AI.UBS.BaseInterfaces.Property
 {
-    public interface IAnotherAllyUnderThreat : ISetIsAnotherAllyUnderThreat, IIsAnotherAllyUnderThreat
+    public interface ITheOtherAIAllyUnderThreat : ISetIsAnotherAllyUnderThreat, IIsAnotherMoralGroupUnderThreat
     {}
 }

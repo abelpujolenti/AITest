@@ -20,7 +20,7 @@ namespace AI.Combat.Ally
                 new AICombatAgentAction<AIAllyAction>(AIAllyAction.ATTACK),
                 new AICombatAgentAction<AIAllyAction>(AIAllyAction.FLEE),
                 new AICombatAgentAction<AIAllyAction>(AIAllyAction.DODGE_ATTACK),
-                new AICombatAgentAction<AIAllyAction>(AIAllyAction.HELP_ALLY)
+                new AICombatAgentAction<AIAllyAction>(AIAllyAction.HELP_ANOTHER_ALLY)
             };
 
             actions[0].utilityScore = CalculateFollowPlayerUtility(context);
@@ -30,7 +30,7 @@ namespace AI.Combat.Ally
             actions[4].utilityScore = CalculateAttackUtility(context);
             actions[5].utilityScore = CalculateFleeUtility(context);
             actions[6].utilityScore = CalculateDodgeAttackUtility(context);
-            actions[7].utilityScore = CalculateHelpAllyUtility(context);
+            actions[7].utilityScore = CalculateHelpAnotherAllyUtility(context);
 
             uint index = 0;
 
@@ -89,6 +89,12 @@ namespace AI.Combat.Ally
                 return 0;
             }
 
+            /*if (allyGetCloserToRivalUtility.GetStoppingDistance() > allyGetCloserToRivalUtility.GetRemainingDistance())
+            {
+                Debug.Log(allyGetCloserToRivalUtility.GetStoppingDistance() + " " + allyGetCloserToRivalUtility.GetRemainingDistance());
+                return 0;
+            }*/
+
             if (allyGetCloserToRivalUtility.IsUnderAttack())
             {
                 return 0.3f;
@@ -125,7 +131,7 @@ namespace AI.Combat.Ally
 
             if (allyAttackUtility.CanStunEnemy())
             {
-                return 0.5f;
+                return 0.6f;
             }
             
             return 0.4f;
@@ -170,11 +176,24 @@ namespace AI.Combat.Ally
             return 0.8f;
         }
         
-        private static float CalculateHelpAllyUtility(IAllyHelpAllyUtility allyHelpAllyUtility)
+        private static float CalculateHelpAnotherAllyUtility(IAllyHelpAnotherMoralGroupUtility allyHelpAnotherMoralGroupUtility)
         {
-            if (!allyHelpAllyUtility.IsFighting() && allyHelpAllyUtility.IsAnotherAllyUnderThreat())
+            if (allyHelpAnotherMoralGroupUtility.HasATarget())
             {
-                return 1;
+                float distanceToRival = allyHelpAnotherMoralGroupUtility.GetDistanceToRival();
+
+                if (allyHelpAnotherMoralGroupUtility.GetMinimumRangeToAttack() < distanceToRival &&
+                    allyHelpAnotherMoralGroupUtility.GetMaximumRangeToAttack() > distanceToRival &&
+                    Vector3.Angle(allyHelpAnotherMoralGroupUtility.GetAgentTransform().forward, 
+                        allyHelpAnotherMoralGroupUtility.GetVectorToRival()) < 15f)
+                {
+                    return 0;
+                }
+            }
+            
+            if (!allyHelpAnotherMoralGroupUtility.IsFighting() && allyHelpAnotherMoralGroupUtility.IsAnotherMoralGroupUnderThreat())
+            {
+                //return 0.95f;
             }
             
             return 0;

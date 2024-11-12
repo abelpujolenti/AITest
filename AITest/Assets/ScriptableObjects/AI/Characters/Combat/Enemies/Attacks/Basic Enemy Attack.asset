@@ -22,10 +22,10 @@ MonoBehaviour:
   isRelativePositionZCenterOfColliderZ: 1
   minimumRangeCast: 0
   maximumRangeCast: 7
-  timeToCast: 4
+  timeToCast: 1.5
   doesDamageOverTime: 0
   timeDealingDamage: 0
-  cooldown: 0.5
+  cooldown: 3
   itLandsInstantly: 1
   delayBeforeApplyingDamage: 0
   startRelativePositionToCasterOfTheProjectile: {x: 0, y: 0, z: 0}

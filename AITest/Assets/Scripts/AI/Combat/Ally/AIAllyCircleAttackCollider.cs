@@ -1,17 +1,14 @@
-﻿using System.Collections.Generic;
-using ECS.Components.AI.Combat;
+﻿using ECS.Components.AI.Combat;
 using ECS.Entities.AI.Combat;
 using UnityEngine;
 
 namespace AI.Combat.Ally
 {
-    public class AIAllyCircleAttackCollider : AIAttackCollider
+    public class AIAllyCircleAttackCollider : AIAllyAttackCollider
     {
         private AllyCircleAttackComponent _circleAttackComponent;
 
         private SphereCollider _sphereCollider;
-
-        private List<AIEnemy> _combatAgentsTriggering = new List<AIEnemy>();
 
         protected override void OnEnable()
         {
@@ -43,6 +40,8 @@ namespace AI.Combat.Ally
 
         public void SetCircleAttackComponent(AllyCircleAttackComponent circleAttackComponent)
         {
+            _allyID = circleAttackComponent.GetAllyID();
+            
             _sphereCollider = gameObject.AddComponent<SphereCollider>();
             _sphereCollider.isTrigger = true;
             

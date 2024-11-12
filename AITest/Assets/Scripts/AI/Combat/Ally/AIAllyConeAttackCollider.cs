@@ -1,17 +1,14 @@
-﻿using System.Collections.Generic;
-using ECS.Components.AI.Combat;
+﻿using ECS.Components.AI.Combat;
 using ECS.Entities.AI.Combat;
 using UnityEngine;
 
 namespace AI.Combat.Ally
 {
-    public class AIAllyConeAttackCollider : AIAttackCollider
+    public class AIAllyConeAttackCollider : AIAllyAttackCollider
     {
         private AllyConeAttackComponent _coneAttackComponent;
 
         private SphereCollider _sphereCollider;
-
-        private List<AIEnemy> _combatAgentsTriggering = new List<AIEnemy>();
 
         protected override void OnEnable()
         {
@@ -31,11 +28,6 @@ namespace AI.Combat.Ally
             transform.parent = null;
         }
 
-        protected override void OnDisable()
-        {
-            _combatAgentsTriggering.Clear();
-        }
-
         private void Rotate()
         {
             transform.rotation = 
@@ -50,6 +42,8 @@ namespace AI.Combat.Ally
 
         public void SetConeAttackComponent(AllyConeAttackComponent coneAttackComponent)
         {
+            _allyID = coneAttackComponent.GetAllyID();
+            
             _sphereCollider = gameObject.AddComponent<SphereCollider>();
             _sphereCollider.isTrigger = true;
             

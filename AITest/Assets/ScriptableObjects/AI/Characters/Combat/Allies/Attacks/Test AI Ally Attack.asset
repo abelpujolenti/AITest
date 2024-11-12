@@ -25,7 +25,7 @@ MonoBehaviour:
   timeToCast: 0.5
   doesDamageOverTime: 0
   timeDealingDamage: 0
-  cooldown: 3
+  cooldown: 1
   itLandsInstantly: 1
   delayBeforeApplyingDamage: 0
   startRelativePositionToCasterOfTheProjectile: {x: 0, y: 0, z: 0}

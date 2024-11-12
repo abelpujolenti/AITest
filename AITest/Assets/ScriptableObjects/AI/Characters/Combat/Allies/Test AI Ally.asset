@@ -16,7 +16,6 @@ MonoBehaviour:
   sightMaximumDistance: 0
   damageFeedbackFlashTime: 0.75
   damageFeedbackFlashColor: {r: 1, g: 0, b: 0, a: 0}
-  moralWeight: 3
   radiusOfAlert: 20
   aiAttacks:
   - {fileID: 11400000, guid: 00baaff0f6219f344acb4e0a2ac7b72e, type: 2}

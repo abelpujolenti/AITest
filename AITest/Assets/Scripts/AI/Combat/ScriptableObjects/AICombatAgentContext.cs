@@ -12,10 +12,12 @@ namespace AI.Combat.ScriptableObjects
     {
         protected List<uint> _repeatableActions = new List<uint>();
         private uint _lastActionIndex = 10;
-        
+
         private uint _totalHealth;
         private uint _health;
+        private uint _currentGroup;
         private uint _rivalIndex;
+        private uint _rivalGroupIDOfTarget;
 
         private float _radius;
         private float _rivalRadius;
@@ -28,17 +30,19 @@ namespace AI.Combat.ScriptableObjects
         private bool _hasATarget;
         private bool _isFighting;
         private bool _isAttacking;
+        private bool _isAirborne;
 
         private Vector3 _vectorToRival;
 
         private Transform _agentTransform;
         private Transform _rivalTransform;
 
-        protected AICombatAgentContext(uint totalHealth, float radius, float sightMaximumDistance, float minimumRangeToAttack, 
+        protected AICombatAgentContext(uint totalHealth, uint currentGroup, float radius, float sightMaximumDistance, float minimumRangeToAttack, 
             float maximumRangeToAttack, Transform agentTransform)
         {
             _totalHealth = totalHealth;
             _health = totalHealth;
+            _currentGroup = currentGroup;
             _radius = radius;
             _sightMaximumDistance = sightMaximumDistance != 0 ? sightMaximumDistance : Mathf.Infinity; 
             _minimumRangeToAttack = minimumRangeToAttack;
@@ -61,6 +65,16 @@ namespace AI.Combat.ScriptableObjects
             return _lastActionIndex;
         }
 
+        public void SetCurrentGroup(uint currentGroup)
+        {
+            _currentGroup = currentGroup;
+        }
+
+        public uint GetCurrentGroup()
+        {
+            return _currentGroup;
+        }
+
         public uint GetTotalHealth()
         {
             return _totalHealth;
@@ -81,9 +95,19 @@ namespace AI.Combat.ScriptableObjects
             _rivalIndex = rivalIndex;
         }
 
-        public uint GetRivalIndex()
+        public uint GetRivalID()
         {
             return _rivalIndex;
+        }
+
+        public void SetRivalGroupIDOfTarget(uint rivalGroupIDOfTarget)
+        {
+            _rivalGroupIDOfTarget = rivalGroupIDOfTarget;
+        }
+
+        public uint GetRivalGroupIDOfTarget()
+        {
+            return _rivalGroupIDOfTarget;
         }
 
         public float GetRadius()
@@ -174,6 +198,16 @@ namespace AI.Combat.ScriptableObjects
         public bool IsAttacking()
         {
             return _isAttacking;
+        }
+
+        public void SetIsAirborne(bool isAirborne)
+        {
+            _isAirborne = isAirborne;
+        }
+
+        public bool IsAirborne()
+        {
+            return _isAirborne;
         }
 
         public void SetVectorToRival(Vector3 vectorToRival)

@@ -2,6 +2,7 @@
 using ECS.Components.AI.Combat;
 using ECS.Entities.AI.Combat;
 using Managers;
+using Unity.AI.Navigation;
 using UnityEngine;
 
 namespace AI.Combat.Enemy
@@ -61,7 +62,14 @@ namespace AI.Combat.Enemy
             float width = _rectangleAttackComponent.GetWidth();
             float length = _rectangleAttackComponent.GetLength();
             
-            _boxCollider.size = new Vector3(width, height, length);
+            Vector3 sizes = new Vector3(width, height, length);
+            
+            _boxCollider.size = sizes;
+
+            foreach (NavMeshModifierVolume navMeshModifierVolume in _navMeshModifierVolumes)
+            {
+                navMeshModifierVolume.size = sizes;
+            }
 
             Vector3 center = new Vector3
             {

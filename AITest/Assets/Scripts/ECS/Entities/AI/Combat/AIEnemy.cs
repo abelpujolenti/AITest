@@ -16,8 +16,6 @@ namespace ECS.Entities.AI.Combat
 
         [SerializeField] private SphereCollider _originalThreatGroupInfluenceCollider;
 
-        private List<uint> _overlappingEnemies = new List<uint>();
-
         private ThreatComponent _threatComponent;
         
         private void Start()
@@ -28,13 +26,13 @@ namespace ECS.Entities.AI.Combat
             CalculateMinimumAndMaximumRangeToAttacks(_attackComponents);
             
             _threatComponent = new ThreatComponent(_aiEnemySpecs.threatLevel);
+            _groupComponent = _threatComponent;
+            _context = new AIEnemyContext(_aiEnemySpecs.totalHealth, _threatComponent.GetCurrentGroup(), 
+                GetComponent<CapsuleCollider>().radius, _aiEnemySpecs.sightMaximumDistance, _minimumRangeToCastAnAttack, 
+                _maximumRangeToCastAnAttack, transform, _aiEnemySpecs.threatLevel, 
+                _originalThreatGroupInfluenceCollider.radius, _aiEnemySpecs.maximumStress, _aiEnemySpecs.stunDuration);
             
-            _context = new AIEnemyContext(_aiEnemySpecs.totalHealth, GetComponent<CapsuleCollider>().radius, 
-                _aiEnemySpecs.sightMaximumDistance, _minimumRangeToCastAnAttack, _maximumRangeToCastAnAttack, 
-                transform, _aiEnemySpecs.threatLevel, _originalThreatGroupInfluenceCollider.radius, _aiEnemySpecs.maximumStress, 
-                _aiEnemySpecs.stunDuration);
-            
-            CombatManager.Instance.AddAIEnemy(this, _context);
+            CombatManager.Instance.AddAIEnemy(this);
             
             StartUpdate();
         }
@@ -80,20 +78,6 @@ namespace ECS.Entities.AI.Combat
             }
         }
 
-        public void AddOverlappingEnemyID(uint enemyID)
-        {
-            _overlappingEnemies.Add(enemyID);
-            
-            CombatManager.Instance.OnEnemyJoinEnemy(this, enemyID);
-        }
-
-        public void RemoveOverlappingEnemy(uint enemyID)
-        {
-            _overlappingEnemies.Remove(enemyID);
-            
-            CombatManager.Instance.OnEnemySeparateFromEnemy(this, enemyID);
-        }
-
         protected override void UpdateVisibleRivals()
         {
             _visibleRivals = CombatManager.Instance.GetVisibleRivals
@@ -114,7 +98,7 @@ namespace ECS.Entities.AI.Combat
 
             AttackComponent attackComponent = ReturnNextAttack();
             
-            _context.SetIsAttacking(true);
+            Attacking();
 
             return attackComponent;
         }
@@ -168,6 +152,8 @@ namespace ECS.Entities.AI.Combat
             float stunDuration = GetContext().GetStunDuration();
             float time = 0;
 
+            GetNavMeshAgentComponent().GetNavMeshAgent().isStopped = true;
+
             _damageFeedbackComponent.GetMeshRenderer().material.color = new Color(0.71f, 0, 0.63f);
             
             while (time < stunDuration)
@@ -175,6 +161,8 @@ namespace ECS.Entities.AI.Combat
                 time += Time.deltaTime;
                 yield return null;
             }
+
+            GetNavMeshAgentComponent().GetNavMeshAgent().isStopped = false;
             
             GetContext().SetIsStunned(false);
             
@@ -194,64 +182,10 @@ namespace ECS.Entities.AI.Combat
             return _context;
         }
 
-        public override void SetLastActionIndex(uint lastActionIndex)
-        {
-            _context.SetLastActionIndex(lastActionIndex);
-        }
-
-        public override void SetHealth(uint health)
-        {
-            _context.SetHealth(health);
-        }
-
-        public override void SetRivalIndex(uint rivalIndex)
-        {
-            _context.SetRivalIndex(rivalIndex);
-        }
-
-        public override void SetRivalRadius(float rivalRadius)
-        {
-            _context.SetRivalRadius(rivalRadius);
-        }
-
-        public override void SetDistanceToRival(float distanceToRival)
-        {
-            _context.SetDistanceToRival(distanceToRival);
-        }
-
-        public override void SetIsSeeingARival(bool isSeeingARival)
-        {
-            _context.SetIsSeeingARival(isSeeingARival);
-        }
-
-        public override void SetHasATarget(bool hasATarget)
-        {
-            _context.SetHasATarget(hasATarget);
-        }
-
-        public override void SetIsFighting(bool isFighting)
-        {
-            _context.SetIsFighting(isFighting);
-        }
-
-        public override void SetIsAttacking(bool isAttacking)
-        {
-            _context.SetIsAttacking(isAttacking);
-        }
-
-        public override void SetVectorToRival(Vector3 vectorToRival)
-        {
-            _context.SetVectorToRival(vectorToRival);
-        }
-
-        public override void SetRivalTransform(Transform rivalTransform)
-        {
-            _context.SetRivalTransform(rivalTransform);
-        }
-
         public void SetCurrentThreatGroup(uint currentThreatGroup)
         {
-            _context.SetCurrentThreatGroup(currentThreatGroup);
+            _threatComponent.currentGroup = currentThreatGroup;
+            _context.SetCurrentGroup(currentThreatGroup);
         }
 
         public void SetCurrentStress(float currentStress)
@@ -267,11 +201,6 @@ namespace ECS.Entities.AI.Combat
         public List<AttackComponent> GetAttackComponents()
         {
             return _attackComponents;
-        }
-
-        public List<uint> GetOverlappingEnemies()
-        {
-            return _overlappingEnemies;
         }
 
         public ThreatComponent GetThreatComponent()

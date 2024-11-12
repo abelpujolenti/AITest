@@ -10,7 +10,7 @@ namespace ECS.Components.AI.Combat
         private float _length;
         private float _wideness;
 
-        public AllyRectangleAttackComponent(AIAllyAttack aiAttack) : base(aiAttack)
+        public AllyRectangleAttackComponent(uint allyID, AIAllyAttack aiAttack) : base(allyID, aiAttack)
         {
             AIAttackAoE aiAttackAoE = aiAttack.attackAoE;
             

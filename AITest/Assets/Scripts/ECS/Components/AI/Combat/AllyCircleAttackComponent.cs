@@ -6,7 +6,7 @@ namespace ECS.Components.AI.Combat
     {
         private float _radius;
 
-        public AllyCircleAttackComponent(AIAllyAttack aiAttack) : base(aiAttack)
+        public AllyCircleAttackComponent(uint allyID, AIAllyAttack aiAttack) : base(allyID, aiAttack)
         {
             _radius = aiAttack.attackAoE.GetRadius();
         }

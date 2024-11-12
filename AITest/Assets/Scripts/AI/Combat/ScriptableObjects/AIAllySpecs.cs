@@ -8,9 +8,8 @@ namespace AI.Combat.ScriptableObjects
     {
         public readonly AIAgentType aiAgentType = AIAgentType.ALLY;
         
-        public float moralWeight;
+        public readonly float moralWeight = 3;
         public float radiusOfAlert;
-        public readonly float faintDuration = 10;
 
         [SerializeField] public List<AIAllyAttack> aiAttacks;
     }

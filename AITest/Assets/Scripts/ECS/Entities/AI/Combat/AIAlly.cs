@@ -10,7 +10,6 @@ using ECS.Components.AI.Navigation;
 using Interfaces.AI.Combat;
 using Managers;
 using UnityEngine;
-using UnityEngine.AI;
 using Utilities;
 
 namespace ECS.Entities.AI.Combat
@@ -32,9 +31,7 @@ namespace ECS.Entities.AI.Combat
         
         private DieComponent _dieComponent;
 
-        private float _faintDuration;
-
-        private Coroutine _faintCoroutine; 
+        [SerializeField] private bool _isAI;
 
         private void Start()
         {
@@ -46,15 +43,21 @@ namespace ECS.Entities.AI.Combat
             CapsuleCollider capsuleCollider = GetComponent<CapsuleCollider>();
             
             _moralComponent = new MoralComponent(_aiAllySpecs.moralWeight);
+            _groupComponent = _moralComponent;
             _dieComponent = new DieComponent();
-            _faintDuration = _aiAllySpecs.faintDuration;
-            _context = new AIAllyContext(_aiAllySpecs.totalHealth, capsuleCollider.radius, 
+            _context = new AIAllyContext(_aiAllySpecs.totalHealth, _moralComponent.GetCurrentGroup(), capsuleCollider.radius, 
                 _aiAllySpecs.sightMaximumDistance, _minimumRangeToCastAnAttack, _maximumRangeToCastAnAttack, 
-                transform, capsuleCollider.height, _aiAllySpecs.moralWeight, _aiAllySpecs.radiusOfAlert);
+                transform, _navMeshAgent.stoppingDistance, capsuleCollider.height, _aiAllySpecs.moralWeight, 
+                _aiAllySpecs.radiusOfAlert);
             
             CombatManager.Instance.AddAIAlly(this);
             
             InstantiateAttacksColliders();
+
+            if (!_isAI)
+            {
+                return;
+            }
             
             StartUpdate();
         }
@@ -66,15 +69,15 @@ namespace ECS.Entities.AI.Combat
                 switch (aiAllyAttack.aiAttackAoEType)
                 {
                     case AIAttackAoEType.RECTANGLE_AREA:
-                        _attackComponents.Add(new AllyRectangleAttackComponent(aiAllyAttack));
+                        _attackComponents.Add(new AllyRectangleAttackComponent(GetCombatAgentInstance(), aiAllyAttack));
                         break;
                     
                     case AIAttackAoEType.CIRCLE_AREA:
-                        _attackComponents.Add(new AllyCircleAttackComponent(aiAllyAttack));
+                        _attackComponents.Add(new AllyCircleAttackComponent(GetCombatAgentInstance(), aiAllyAttack));
                         break;
                     
                     case AIAttackAoEType.CONE_AREA:
-                        _attackComponents.Add(new AllyConeAttackComponent(aiAllyAttack));
+                        _attackComponents.Add(new AllyConeAttackComponent(GetCombatAgentInstance(), aiAllyAttack));
                         break;
                 }
             }
@@ -120,6 +123,18 @@ namespace ECS.Entities.AI.Combat
             }
         }
 
+        protected override void StartUpdate()
+        {
+            base.StartUpdate();
+            _isAI = true;
+        }
+
+        protected override void StopUpdate()
+        {
+            base.StopUpdate();
+            _isAI = false;
+        }
+
         protected override IEnumerator UpdateCoroutine()
         {
             while (true)
@@ -128,7 +143,7 @@ namespace ECS.Entities.AI.Combat
 
                 UpdateVectorToRival();
 
-                UpdateDistancesToThreatGroupsThatThreatMe();
+                UpdateDistancesToThreatGroupsThatThreatMyMoralGroup();
 
                 if (_context.IsAttacking())
                 {
@@ -141,27 +156,8 @@ namespace ECS.Entities.AI.Combat
                     yield return null;
                     continue;
                 }
-
-                float angleToDestination = Vector3.Angle(transform.forward,
-                    GetNavMeshAgentComponent().GetNavMeshAgent().destination - transform.position);
-
-                NavMeshAgent navMeshAgent = GetNavMeshAgentComponent().GetNavMeshAgent();
-
-                Vector3 destination = navMeshAgent.destination;
-                    
-                /*if (Vector3.Distance(transform.position, destination) < _stoppingDistance && angleToDestination > 15f)
-                {
-                    RotateToGivenPosition(destination);
-                    yield return null;
-                    continue;
-                }*/
-
-                /*if (Vector3.Angle(transform.forward, navMeshAgent.path.corners[1] - transform.position) > 120f)
-                {
-                    RotateToNextPathCorner();
-                    yield return null;
-                    continue;
-                }*/
+                
+                //TODO REMAINING DISTANCE IF HAS A DESTINATION
             
                 CalculateBestAction();
 
@@ -192,13 +188,13 @@ namespace ECS.Entities.AI.Combat
                 return;
             }
 
-            _threatGroupsThatThreatMe = CombatManager.Instance.FilterThreatGroupsThatThreatMe(GetCombatAgentInstance(), 
-                GetStatWeightComponent(), _context.GetThreatGroupOfTarget(), _visibleRivals);
+            _threatGroupsThatThreatMe = CombatManager.Instance.FilterThreatGroupsThatThreatMyMoralGroup(_context.GetCurrentGroup(), 
+                GetStatWeightComponent(), _context.GetRivalGroupIDOfTarget(), _visibleRivals);
 
             _threatGroupsThatFightAllies = CombatManager.Instance.FilterPerThreatGroupAlliesFighting(this);
         }
 
-        private void UpdateDistancesToThreatGroupsThatThreatMe()
+        private void UpdateDistancesToThreatGroupsThatThreatMyMoralGroup()
         {
             _context.SetDistancesToThreatGroupsThatThreatMe(
                 CombatManager.Instance.GetDistancesToGivenThreatGroups(transform.position, _threatGroupsThatThreatMe));
@@ -282,39 +278,9 @@ namespace ECS.Entities.AI.Combat
         {
             AllyAttackComponent attackComponent = ReturnNextAttack();
             
-            _context.SetIsAttacking(true);
+            Attacking();
 
             StartCastingAnAttack(attackComponent);
-        }
-
-        public List<Vector2> GetOncomingEnemiesAttacksCorners()
-        {
-            List<Vector2> originalPolygon = new List<Vector2>();
-            List<Vector2> newPolygon = new List<Vector2>();
-            
-            originalPolygon.AddRange(_oncomingEnemyAttacks[0].GetCornerPoints());
-
-            for (int i = 0; i < _oncomingEnemyAttacks.Count - 1; i++)
-            {
-                newPolygon.AddRange(_oncomingEnemyAttacks[i + 1].GetCornerPoints());
-
-                originalPolygon = PolygonUtilities.Union2Polygons(originalPolygon, newPolygon);
-                
-                newPolygon.Clear();
-            }
-
-            return originalPolygon;
-        }
-
-        public void DodgeAttack(VectorComponent positionToDodge)
-        {
-            ContinueNavigation();
-
-            NavMeshAgentComponent navMeshAgentComponent = GetNavMeshAgentComponent();
-
-            navMeshAgentComponent.GetNavMeshAgent().stoppingDistance = 1;
-            
-            ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(GetNavMeshAgentComponent(),positionToDodge);
         }
 
         private void StartCastingAnAttack(AllyAttackComponent allyAttackComponent)
@@ -333,6 +299,7 @@ namespace ECS.Entities.AI.Combat
 
         private void PutAttackOnCooldown(AllyAttackComponent attackComponent)
         {
+            NotAttacking();
             StartCoroutine(StartCooldownCoroutine(attackComponent));
         }
 
@@ -390,6 +357,43 @@ namespace ECS.Entities.AI.Combat
             }
             
             OnAttackAvailableAgain(allyAttackComponent);
+        }
+
+        public void RequestHelp()
+        {
+            
+        }
+
+        public List<Vector2> GetOncomingEnemiesAttacksCorners()
+        {
+            List<Vector2> originalPolygon = new List<Vector2>();
+            List<Vector2> newPolygon = new List<Vector2>();
+            
+            originalPolygon.AddRange(_oncomingEnemyAttacks[0].GetCornerPoints());
+
+            for (int i = 0; i < _oncomingEnemyAttacks.Count - 1; i++)
+            {
+                newPolygon.AddRange(_oncomingEnemyAttacks[i + 1].GetCornerPoints());
+
+                originalPolygon = PolygonUtilities.Union2Polygons(originalPolygon, newPolygon);
+                
+                newPolygon.Clear();
+            }
+
+            return originalPolygon;
+        }
+
+        public void DodgeAttack(VectorComponent positionToDodge)
+        {
+            ContinueNavigation();
+
+            NavMeshAgentComponent navMeshAgentComponent = GetNavMeshAgentComponent();
+
+            navMeshAgentComponent.GetNavMeshAgent().stoppingDistance = 1;
+            
+            _context.SetStoppingDistance(1);
+            
+            ECSNavigationManager.Instance.UpdateNavMeshAgentVectorDestination(GetNavMeshAgentComponent(),positionToDodge);
         }
 
         public void WarnOncomingDamage(RectangleAttackComponent rectangleAttackComponent, AIEnemyAttackCollider enemyAttackCollider)
@@ -452,6 +456,8 @@ namespace ECS.Entities.AI.Combat
             NavMeshAgentComponent navMeshAgentComponent = GetNavMeshAgentComponent();
 
             navMeshAgentComponent.GetNavMeshAgent().stoppingDistance = 7;
+            
+            _context.SetStoppingDistance(7);
 
             if (_lastDestination != null)
             {
@@ -479,20 +485,6 @@ namespace ECS.Entities.AI.Combat
         protected override void OnDefeated()
         {
             CombatManager.Instance.OnAllyDefeated(this);
-            _faintCoroutine = StartCoroutine(FaintDurationCoroutine());
-        }
-
-        private IEnumerator FaintDurationCoroutine()
-        {
-            float currentTime = 0;
-
-            while (currentTime < _faintDuration)
-            {
-                currentTime += Time.deltaTime;
-                yield return null;
-            }
-            
-            OnDie();
         }
 
         private void OnDie()
@@ -503,7 +495,7 @@ namespace ECS.Entities.AI.Combat
 
         private void OnBeingRescued()
         {
-            StopCoroutine(_faintCoroutine);
+            
         }
 
         public override AIAgentType GetAIAgentType()
@@ -516,64 +508,15 @@ namespace ECS.Entities.AI.Combat
             return _context;
         }
 
-        public override void SetLastActionIndex(uint lastActionIndex)
-        {
-            _context.SetLastActionIndex(lastActionIndex);
-        }
-
-        public override void SetHealth(uint health)
-        {
-            _context.SetHealth(health);
-        }
-
-        public override void SetRivalIndex(uint rivalIndex)
-        {
-            _context.SetRivalIndex(rivalIndex);
-        }
-
-        public override void SetRivalRadius(float rivalRadius)
-        {
-            _context.SetRivalRadius(rivalRadius);
-        }
-
-        public override void SetDistanceToRival(float distanceToRival)
-        {
-            _context.SetDistanceToRival(distanceToRival);
-        }
-
-        public override void SetIsSeeingARival(bool isSeeingARival)
-        {
-            _context.SetIsSeeingARival(isSeeingARival);
-        }
-
-        public override void SetHasATarget(bool hasATarget)
-        {
-            _context.SetHasATarget(hasATarget);
-        }
-
-        public override void SetIsFighting(bool isFighting)
-        {
-            _context.SetIsFighting(isFighting);
-        }
-
-        public override void SetIsAttacking(bool isAttacking)
-        {
-            _context.SetIsAttacking(isAttacking);
-        }
-
-        public override void SetVectorToRival(Vector3 vectorToRival)
-        {
-            _context.SetVectorToRival(vectorToRival);
-        }
-
-        public override void SetRivalTransform(Transform rivalTransform)
-        {
-            _context.SetRivalTransform(rivalTransform);
-        }
-
         public override IStatWeight GetStatWeightComponent()
         {
             return _moralComponent;
+        }
+
+        public void SetCurrentMoralGroup(uint currentMoralGroup)
+        {
+            _moralComponent.currentGroup = currentMoralGroup;
+            _context.SetCurrentGroup(currentMoralGroup);
         }
 
         public void SetOncomingAttackDamage(uint oncomingAttackDamage)
@@ -587,13 +530,9 @@ namespace ECS.Entities.AI.Combat
             CalculateIfCanDefeatEnemy();
         }
 
-        public void SetThreatGroupOfTarget(uint threatGroupOfTarget)
-        {
-            _context.SetThreatGroupOfTarget(threatGroupOfTarget);
-        }
-
         public void SetMoralWeight(float moralWeight)
         {
+            _moralComponent.SetMoralWeight(moralWeight);
             _context.SetMoralWeight(moralWeight);
         }
 
@@ -628,14 +567,9 @@ namespace ECS.Entities.AI.Combat
             _context.SetIsUnderAttack(isUnderAttack);
         }
 
-        public void SetIsAnotherAllyUnderThreat(bool isAnotherAllyUnderThreat)
+        public void SetIsAnotherMoralGroupUnderThreat(bool isAnotherAllyUnderThreat)
         {
-            _context.SetIsAnotherAllyUnderThreat(isAnotherAllyUnderThreat);
-        }
-
-        public void SetIsAirborne(bool isAirborne)
-        {
-            _context.SetIsAirborne(isAirborne);
+            _context.SetIsAnotherMoralGroupUnderThreat(isAnotherAllyUnderThreat);
         }
 
         public void SetState(AIAllyOrders allyOrder)
@@ -643,6 +577,21 @@ namespace ECS.Entities.AI.Combat
             _context.SetIsInRetreatState(allyOrder == AIAllyOrders.RETREAT);
             _context.SetIsInAttackState(allyOrder == AIAllyOrders.ATTACK);
             _context.SetIsInFleeState(allyOrder == AIAllyOrders.FLEE);
+        }
+
+        public void AddGroupToHelp(uint groupID)
+        {
+            _context.AddGroupToHelp(groupID);
+        }
+
+        public void RemoveGroupToHelp(uint groupID)
+        {
+            _context.RemoveGroupToHelp(groupID);
+        }
+
+        public void SetGroupHelpPriority(uint groupID, float helpPriority)
+        {
+            _context.SetGroupHelpPriority(groupID, helpPriority);
         }
 
         public List<AllyAttackComponent> GetAllyAttackComponents()
@@ -658,6 +607,11 @@ namespace ECS.Entities.AI.Combat
         public uint[] GetThreatGroupsThatFightAllies()
         {
             return _threatGroupsThatFightAllies;
+        }
+
+        public bool IsAI()
+        {
+            return _isAI;
         }
     }
 }

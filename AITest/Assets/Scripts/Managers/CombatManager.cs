@@ -15,6 +15,7 @@ using Interfaces.AI.UBS.BaseInterfaces.Get;
 using Unity.AI.Navigation;
 using UnityEngine;
 using Utilities;
+using Random = UnityEngine.Random;
 
 namespace Managers
 {
@@ -53,11 +54,11 @@ namespace Managers
             { AIAllyAction.FOLLOW_PLAYER , ally => Instance.AllyFollowPlayer(ally)},
             { AIAllyAction.CHOOSE_NEW_RIVAL , ally => Instance.AllyRequestRival(ally) },
             { AIAllyAction.GET_CLOSER_TO_RIVAL , ally => Instance.AllyGetCloserToEnemy(ally)},
-            { AIAllyAction.ROTATE , ally => ally.RotateToNextPathCorner()},
+            { AIAllyAction.ROTATE , ally => ally.Rotate()},
             { AIAllyAction.ATTACK , ally => Instance.AllyAttack(ally)},
             { AIAllyAction.FLEE , ally => Instance.AllyFlee(ally)},
             { AIAllyAction.DODGE_ATTACK , ally => Instance.AllyDodge(ally)},
-            { AIAllyAction.HELP_ALLY , ally => Instance.AllyHelpAnotherAlly(ally)}
+            { AIAllyAction.HELP_ANOTHER_ALLY , ally => Instance.AllyHelpAnotherAlly(ally)}
         };
         
         private Dictionary<AIEnemyAction, Action<AIEnemy>> _aiEnemyActions = new Dictionary<AIEnemyAction, Action<AIEnemy>>
@@ -65,7 +66,7 @@ namespace Managers
             { AIEnemyAction.PATROL , enemy => Instance.EnemyPatrol(enemy)},
             { AIEnemyAction.CHOOSE_NEW_RIVAL , enemy => Instance.EnemyRequestRival(enemy)},
             { AIEnemyAction.GET_CLOSER_TO_RIVAL , enemy => Instance.EnemyGetCloserToAlly(enemy)},
-            { AIEnemyAction.ROTATE , enemy => enemy.RotateToNextPathCorner()},
+            { AIEnemyAction.ROTATE , enemy => enemy.Rotate()},
             { AIEnemyAction.ATTACK , enemy => Instance.EnemyAttack(enemy)},
             { AIEnemyAction.FLEE , enemy => Instance.EnemyFlee(enemy)}
         };
@@ -73,17 +74,25 @@ namespace Managers
         private Dictionary<AttackComponent, AIEnemyAttackCollider> _enemiesAttacksColliders =
             new Dictionary<AttackComponent, AIEnemyAttackCollider>();
 
-        private Dictionary<AIEnemy, List<uint>> _enemiesOfTheSameThreatGroupOverlappingTriggers =
-            new Dictionary<AIEnemy, List<uint>>();
+        private Dictionary<uint, List<uint>> _alliesIDsInsideMoralGroup = new Dictionary<uint, List<uint>>();
 
-        private Dictionary<uint, List<uint>> _enemiesIndexesInsideThreatGroup = new Dictionary<uint, List<uint>>();
+        private Dictionary<uint, KeyValuePair<List<MoralComponent>, List<TransformComponent>>> _groupMoralsComponents =
+            new Dictionary<uint, KeyValuePair<List<MoralComponent>, List<TransformComponent>>>();
+
+        private Dictionary<uint, KeyValuePair<MoralGroupComponent, VectorComponent>> _moralGroups =
+            new Dictionary<uint, KeyValuePair<MoralGroupComponent, VectorComponent>>();
+
+        private Dictionary<uint, List<uint>> _enemiesOfTheSameThreatGroupOverlappingTriggers =
+            new Dictionary<uint, List<uint>>();
+
+        private Dictionary<uint, List<uint>> _enemiesIDsInsideThreatGroup = new Dictionary<uint, List<uint>>();
 
         private Dictionary<uint, KeyValuePair<List<ThreatComponent>, List<TransformComponent>>> _groupThreatsComponents =
                 new Dictionary<uint, KeyValuePair<List<ThreatComponent>, List<TransformComponent>>>();
 
         private Dictionary<uint, KeyValuePair<ThreatGroupComponent, VectorComponent>> _threatGroups =
                 new Dictionary<uint, KeyValuePair<ThreatGroupComponent, VectorComponent>>();
-
+        
         private List<AIEnemyAttackCollider> _enemyAttackCollidersSubscribedToRebakeAllyNavMesh =
             new List<AIEnemyAttackCollider>();
 
@@ -97,7 +106,6 @@ namespace Managers
         [SerializeField] private List<GameObject> FLEE_POINTS;
         private List<Vector3> TERRAIN_POSITIONS;
         private Dictionary<AIAlly, int> FLEE_POINTS_RECORD = new Dictionary<AIAlly, int>(); 
-        //
 
         private void ShowActionDebugLogs(string message)
         {
@@ -108,6 +116,7 @@ namespace Managers
             
             Debug.Log(message);
         }
+        //
 
         private void Awake()
         {
@@ -237,7 +246,7 @@ namespace Managers
 
         #region Ally
 
-        public List<uint> FilterThreatGroupsThatThreatMe(uint combatAgentInstance, IStatWeight moralWeightComponent,
+        public List<uint> FilterThreatGroupsThatThreatMyMoralGroup(uint groupID, IStatWeight moralWeightComponent,
             uint threatGroupOfCurrentTarget, List<uint> visibleRivalsIDs)
         {
             List<uint> threatGroupsThatThreatMe = new List<uint>();
@@ -245,7 +254,7 @@ namespace Managers
 
             foreach (uint enemyID in visibleRivalsIDs)
             {
-                uint currentThreatGroupID = _aiEnemies[enemyID].GetContext().GetCurrentThreatGroup();
+                uint currentThreatGroupID = _aiEnemies[enemyID].GetContext().GetCurrentGroup();
 
                 if (threatGroupsChecked.Contains(currentThreatGroupID))
                 {
@@ -256,16 +265,16 @@ namespace Managers
 
                 ThreatGroupComponent threatGroupComponent = _threatGroups[currentThreatGroupID].Key;
 
-                if (threatGroupComponent.groupTarget != combatAgentInstance)
+                if (threatGroupComponent.GetGroupTarget() != groupID)
                 {
                     continue;
                 }
 
-                float totalThreatWeight = threatGroupComponent.threatGroupWeight;
+                float totalThreatWeight = threatGroupComponent.groupWeight;
 
                 if (_threatGroups.ContainsKey(threatGroupOfCurrentTarget))
                 {
-                    totalThreatWeight += _threatGroups[threatGroupOfCurrentTarget].Key.threatGroupWeight * 
+                    totalThreatWeight += _threatGroups[threatGroupOfCurrentTarget].Key.groupWeight * 
                                          Convert.ToUInt16(currentThreatGroupID != threatGroupOfCurrentTarget);    
                 }
 
@@ -294,7 +303,7 @@ namespace Managers
                     continue;
                 }
 
-                whichThreatGroupsAreAlliesFighting[counter] = ally.GetContext().GetThreatGroupOfTarget();
+                whichThreatGroupsAreAlliesFighting[counter] = ally.GetContext().GetRivalGroupIDOfTarget();
                 counter++;
             }
 
@@ -336,31 +345,40 @@ namespace Managers
                 return;
             }
 
-            uint targetId;
+            uint targetID;
 
             NavMeshAgentComponent navMeshAgentComponent = ally.GetNavMeshAgentComponent();
 
-            if (visibleRivals.Count == 1)
+            if (possibleRivals.Count == 1)
             {
-                targetId = visibleRivals[0];
+                targetID = possibleRivals[0];
             }
             else
             {
-                targetId = GetClosestRival<AIEnemy, AIEnemyContext, AttackComponent, AllyDamageComponent>(
-                    navMeshAgentComponent.GetTransformComponent(), _aiEnemies, visibleRivals);
+                targetID = GetClosestRival<AIEnemy, AIEnemyContext, AttackComponent, AllyDamageComponent>(
+                    navMeshAgentComponent.GetTransformComponent(), _aiEnemies, possibleRivals);
             }
-
-            AIEnemy targetEnemy = _aiEnemies[targetId];
-
-            AIEnemyContext targetEnemyContext = targetEnemy.GetContext(); 
             
-            ally.SetRivalIndex(targetEnemy.GetCombatAgentInstance());
+            AIEnemy targetEnemy = _aiEnemies[targetID];
+            
+            OnAllySelectTarget(ally, targetEnemy);
+        }
+
+        private void OnAllySelectTarget(AIAlly ally, AIEnemy targetEnemy)
+        {
+            AIEnemyContext targetEnemyContext = targetEnemy.GetContext();
+
+            uint groupID = targetEnemyContext.GetCurrentGroup();
+
+            uint enemyID = targetEnemy.GetCombatAgentInstance();
+            
+            ally.SetRivalIndex(enemyID);
             ally.SetRivalRadius(targetEnemyContext.GetRadius());
             ally.SetHasATarget(true);
             ally.SetEnemyHealth(targetEnemyContext.GetHealth());
             ally.SetEnemyMaximumStress(targetEnemyContext.GetMaximumStress());
             ally.SetEnemyCurrentStress(targetEnemyContext.GetCurrentStress());
-            ally.SetThreatGroupOfTarget(targetEnemyContext.GetCurrentThreatGroup());
+            ally.SetRivalGroupIDOfTarget(groupID);
             ally.SetThreatWeightOfTarget(targetEnemyContext.GetCurrentThreatGroupWeight());
             ally.SetRivalTransform(targetEnemyContext.GetAgentTransform());
         }
@@ -370,7 +388,7 @@ namespace Managers
             ShowActionDebugLogs(ally.name + " Getting Closer To Rival");
             //Debug.Log(ally.name + " Getting Closer To Rival");
 
-            AIEnemy targetEnemy = _aiEnemies[ally.GetContext().GetRivalIndex()];
+            AIEnemy targetEnemy = _aiEnemies[ally.GetContext().GetRivalID()];
             
             ally.ContinueNavigation();
             
@@ -391,10 +409,40 @@ namespace Managers
             
             ally.ContinueNavigation();
             
+            ally.RequestHelp();
+
+            AIAllyContext allyContext = ally.GetContext();
+
+            uint currentGroup = allyContext.GetCurrentGroup();
+
+            _moralGroups[currentGroup].Key.isRequestingHelp = true;
+            _moralGroups[currentGroup].Key.SetGroupTarget(allyContext.GetRivalGroupIDOfTarget());
+            
+            RequestHelpToAllies(ally);
+            
             EvaluateClosestPoint(ally);
             
             ShowActionDebugLogs(ally.name + " Fleeing");
             //Debug.Log(ally.name + " Fleeing");
+        }
+
+        public void RequestHelpToAllies(AIAlly ally)
+        {
+            foreach (AIAlly allyToSendRequest in _aiAllies.Values)
+            {
+                if (ally == allyToSendRequest)
+                {
+                    continue;
+                }
+
+                if (ally.GetContext().GetCurrentGroup() == allyToSendRequest.GetContext().GetCurrentGroup())
+                {
+                    continue;
+                }
+                
+                allyToSendRequest.GetContext().SetIsAnotherMoralGroupUnderThreat(true);
+                allyToSendRequest.GetContext().SetGroupHelpPriority(ally.GetContext().GetCurrentGroup(), 5);
+            }
         }
 
         private void AllyDodge(AIAlly ally)
@@ -472,6 +520,50 @@ namespace Managers
             //TODO HELP ANOTHER ALLY
             
             ally.ContinueNavigation();
+
+            Dictionary<uint, float> groupsHelpPriority = ally.GetContext().GetGroupsHelpPriority();
+
+            uint groupIDThatNeedsMoreHelp = 0;
+            float highestHelpPriority = 0;
+
+            foreach (var groupHelpPriority in groupsHelpPriority)
+            {
+                float currentHelpPriority = groupHelpPriority.Value;
+                if (currentHelpPriority < highestHelpPriority)
+                {
+                    continue;
+                }
+
+                groupIDThatNeedsMoreHelp = groupHelpPriority.Key;
+                highestHelpPriority = currentHelpPriority;
+            }
+
+            foreach (AIAlly otherAlly in _aiAllies.Values)
+            {
+                if (otherAlly == ally)
+                {
+                    continue;
+                }
+
+                if (!_moralGroups[otherAlly.GetContext().GetCurrentGroup()].Key.isRequestingHelp)
+                {
+                    continue;
+                }
+            
+                uint threatGroupToAttack = otherAlly.GetContext().GetRivalGroupIDOfTarget();
+
+                int randomNumber = Random.Range(0, _enemiesIDsInsideThreatGroup[threatGroupToAttack].Count);
+                
+                uint enemyID = _enemiesIDsInsideThreatGroup[threatGroupToAttack][randomNumber];
+
+                AIEnemy enemySelected = _aiEnemies[enemyID];
+                
+                OnAllySelectTarget(ally, enemySelected);
+
+                TransformComponent transformComponent = enemySelected.GetNavMeshAgentComponent().GetTransformComponent();
+                
+                ally.SetDestination(transformComponent);
+            }
             
             ShowActionDebugLogs(ally.name + " Helping another ally");
             //Debug.Log(ally.name + " Helping another ally");
@@ -523,13 +615,15 @@ namespace Managers
 
             AIAllyContext targetAllyContext = targetAlly.GetContext();
 
-            uint rivalIndex = targetAlly.GetCombatAgentInstance();
+            uint groupID = targetAllyContext.GetCurrentGroup();
             
-            enemy.SetRivalIndex(rivalIndex);
+            enemy.SetRivalIndex(targetAlly.GetCombatAgentInstance());
+            enemy.SetRivalGroupIDOfTarget(groupID);
             enemy.SetHasATarget(true);
             enemy.SetRivalTransform(targetAllyContext.GetAgentTransform());
             
-            MergeOverlappingThreatGroupsWithSameTarget(enemy, rivalIndex);
+            MergeOverlappingGroupWithSameTarget<AIEnemy, AIEnemyContext, AttackComponent, AllyDamageComponent, ThreatGroupComponent>(
+                enemy, groupID, _enemiesOfTheSameThreatGroupOverlappingTriggers, _aiEnemies, ref _threatGroups, MergeThreatGroups);
         }
 
         private void EnemyGetCloserToAlly(AIEnemy enemy)
@@ -537,7 +631,7 @@ namespace Managers
             ShowActionDebugLogs(enemy.name + " Getting Closer To Rival");
             //Debug.Log(enemy.name + " Getting Closer To Rival");
 
-            AIAlly targetEnemy = _aiAllies[enemy.GetContext().GetRivalIndex()];
+            AIAlly targetEnemy = _aiAllies[enemy.GetContext().GetRivalID()];
             
             enemy.ContinueNavigation();
             
@@ -573,29 +667,48 @@ namespace Managers
         public void AddAIAlly(AIAlly aiAlly)
         {
             AddAlly(aiAlly);
+
+            uint combatInstanceID = aiAlly.GetCombatAgentInstance();
+            
+            foreach (uint moralGroupID in _enemiesIDsInsideThreatGroup.Keys)
+            {
+                if (!_alliesIDsInsideMoralGroup[moralGroupID].Contains(combatInstanceID))
+                {
+                    continue;
+                }
+
+                aiAlly.GetContext().SetCurrentGroup(moralGroupID);
+                break;
+            }
         }
 
         private void AddAlly(AIAlly aiAlly)
         {
-            //TODO MORAL SYSTEM
+            foreach (uint moralGroupID in _moralGroups.Keys)
+            {
+                aiAlly.AddGroupToHelp(moralGroupID);
+            }
+            
+            AddMoralGroup(aiAlly.GetCombatAgentInstance(), aiAlly.GetMoralComponent(),
+                aiAlly.GetNavMeshAgentComponent().GetTransformComponent());
 
             _aiAllies.Add(aiAlly.GetCombatAgentInstance(), aiAlly);
         }
 
-        public void AddAIEnemy(AIEnemy aiEnemy, AIEnemyContext aiEnemyContext)
+        public void AddAIEnemy(AIEnemy aiEnemy)
         {
             AddEnemy(aiEnemy);
 
             uint combatInstanceID = aiEnemy.GetCombatAgentInstance();
             
-            foreach (uint threatGroupIndex in _enemiesIndexesInsideThreatGroup.Keys)
+            foreach (uint threatGroupID in _enemiesIDsInsideThreatGroup.Keys)
             {
-                if (!_enemiesIndexesInsideThreatGroup[threatGroupIndex].Contains(combatInstanceID))
+                if (!_enemiesIDsInsideThreatGroup[threatGroupID].Contains(combatInstanceID))
                 {
                     continue;
                 }
 
-                aiEnemyContext.SetCurrentThreatGroup(threatGroupIndex);
+                aiEnemy.GetContext().SetCurrentGroup(threatGroupID);
                 break;
             }
             
@@ -604,7 +717,7 @@ namespace Managers
 
         private void AddEnemy(AIEnemy aiEnemy)
         {
-            _enemiesOfTheSameThreatGroupOverlappingTriggers.Add(aiEnemy, new List<uint>());
+            _enemiesOfTheSameThreatGroupOverlappingTriggers.Add(aiEnemy.GetCombatAgentInstance(), new List<uint>());
 
             AddThreat(aiEnemy.GetCombatAgentInstance(), aiEnemy.GetThreatComponent(), 
                 aiEnemy.GetNavMeshAgentComponent().GetTransformComponent());
@@ -654,105 +767,333 @@ namespace Managers
 
         #region Combat Agents Events
 
-        public void OnAllyJoinAlly(ref MoralComponent moralComponent)
+        public void CheckEnemyThreatGroup(uint allyID, uint enemyThreatGroup)
         {
-            moralComponent.AddMinMoralWeight();
+            AIAlly ally = _aiAllies[allyID];
+
+            if (enemyThreatGroup != ally.GetContext().GetRivalGroupIDOfTarget())
+            {
+                return;
+            }
+
+            foreach (var moralGroup in _moralGroups)
+            {
+                if (moralGroup.Value.Key.GetGroupTarget() != enemyThreatGroup)
+                {
+                    continue;
+                }
+                
+                OnAllyJoinsGroup(ally, moralGroup.Key);
+                return;
+            }
+            
+            OnAllyLeavesGroup(ally);
         }
 
-        public void OnAllySeparateFromAlly(ref MoralComponent moralComponent)
+        private void OnAllyJoinsGroup(AIAlly ally, uint groupToJoin)
         {
-            moralComponent.SubtractMinMoralWeight();
+            uint allyMoralGroup = ally.GetMoralComponent().currentGroup;
+
+            MoralGroupComponent moralGroupToJoinComponent = _moralGroups[groupToJoin].Key;
+
+            float totalMoralWeight =
+                moralGroupToJoinComponent.groupWeight + _moralGroups[allyMoralGroup].Key.groupWeight;
+
+            bool doesThreatHasBeenOvercome = 
+                _threatGroups[moralGroupToJoinComponent.GetGroupTarget()].Key.groupWeight < totalMoralWeight;
+
+            if (doesThreatHasBeenOvercome)
+            {
+                _moralGroups[groupToJoin].Key.isRequestingHelp = false;
+
+                foreach (AIAlly otherAlly in _aiAllies.Values)
+                {
+                    if (ally == otherAlly)
+                    {
+                        continue;
+                    }
+
+                    AIAllyContext allyContext = otherAlly.GetContext();
+
+                    if (allyContext.GetCurrentGroup() == groupToJoin)
+                    {
+                        continue;
+                    }
+                    
+                    allyContext.SetGroupHelpPriority(groupToJoin, 0);
+                    allyContext.SetIsAnotherMoralGroupUnderThreat(false);
+                }
+
+                foreach (uint allyID in _alliesIDsInsideMoralGroup[groupToJoin])
+                {
+                    AIAlly groupToJoinAlly = _aiAllies[allyID];
+                    FLEE_POINTS_RECORD.Remove(groupToJoinAlly);
+                    groupToJoinAlly.SetDestination(new TransformComponent(groupToJoinAlly.GetContext().GetRivalTransform()));
+                }
+            }
+
+            if (allyMoralGroup < groupToJoin)
+            {
+                List<uint> alliesIDs = new List<uint>();
+                foreach (uint allyID in _alliesIDsInsideMoralGroup[groupToJoin])
+                {
+                    alliesIDs.Add(allyID);
+                }
+
+                if (!doesThreatHasBeenOvercome)
+                {
+                    _moralGroups[groupToJoin].Key.isRequestingHelp = false;
+                    _moralGroups[allyMoralGroup].Key.isRequestingHelp = true;
+
+                    foreach (AIAlly otherAlly in _aiAllies.Values)
+                    {
+                        if (ally == otherAlly)
+                        {
+                            continue;
+                        }
+
+                        AIAllyContext allyContext = otherAlly.GetContext();
+
+                        if (allyContext.GetCurrentGroup() == groupToJoin)
+                        {
+                            continue;
+                        }
+                    
+                        allyContext.SetGroupHelpPriority(groupToJoin, 0);
+                        allyContext.SetIsAnotherMoralGroupUnderThreat(true);
+
+                        if (allyContext.GetCurrentGroup() == allyMoralGroup)
+                        {
+                            continue;
+                        }
+                        
+                        allyContext.SetGroupHelpPriority(allyMoralGroup, _moralGroups[groupToJoin].Key.helpPriority);
+                    }
+                }
+                
+                MergeMoralGroups(groupToJoin, allyMoralGroup);
+
+                foreach (uint allyID in alliesIDs)
+                {
+                    UpdateGroupsInEnemyContext(allyID, allyMoralGroup);
+                    _aiAllies[allyID].GetContext().SetCurrentGroup(allyMoralGroup);
+                }
+                
+                return;
+            }
+
+            List<MoralComponent> moralComponents = new List<MoralComponent>
+            {
+                ally.GetMoralComponent()
+            };
+            
+            MoveGivenMoralGroupToAnotherMoralGroup(moralComponents, allyMoralGroup, groupToJoin);
+            UpdateGroupsInEnemyContext(ally.GetCombatAgentInstance(), groupToJoin);
+
+            _alliesIDsInsideMoralGroup[allyMoralGroup].Remove(ally.GetCombatAgentInstance());
+            _alliesIDsInsideMoralGroup[groupToJoin].Add(ally.GetCombatAgentInstance());
+            ally.GetContext().SetCurrentGroup(groupToJoin);
+
+            foreach (uint allyID in _alliesIDsInsideMoralGroup[groupToJoin])
+            {
+                _aiAllies[allyID].SetMoralWeight(_moralGroups[groupToJoin].Key.groupWeight);
+            }
         }
 
-        public void OnEnemyJoinEnemy(AIEnemy aiEnemy, uint otherEnemyID)
+        private void MergeMoralGroups(uint moralGroupFromWhichTheyCome, uint moralGroupToMove)
+        {
+            MoveAllMoralGroupToAnotherMoralGroup(moralGroupFromWhichTheyCome, moralGroupToMove);
+
+            for (int i = _alliesIDsInsideMoralGroup[moralGroupFromWhichTheyCome].Count - 1; i >= 0; i--)
+            {
+                uint allyID = _alliesIDsInsideMoralGroup[moralGroupFromWhichTheyCome][i];
+                
+                _alliesIDsInsideMoralGroup[moralGroupFromWhichTheyCome].Remove(allyID);
+                _alliesIDsInsideMoralGroup[moralGroupToMove].Add(allyID);
+                _aiAllies[allyID].SetCurrentMoralGroup(moralGroupToMove);
+            }
+
+            foreach (uint allyID in _alliesIDsInsideMoralGroup[moralGroupToMove])
+            {
+                _aiAllies[allyID].GetContext().SetMoralWeight(_moralGroups[moralGroupToMove].Key.groupWeight);
+            }
+            
+            UpdateGroupsInEnemyContext(moralGroupFromWhichTheyCome, moralGroupToMove);
+        }
+
+        private void UpdateGroupsInEnemyContext(uint allyID, uint moralGroupMoved)
+        {
+            foreach (AIEnemy enemy in _aiEnemies.Values)
+            {
+                AIEnemyContext enemyContext = enemy.GetContext();
+                
+                if (enemyContext.GetRivalID() != allyID)
+                {
+                    continue;
+                }
+                
+                enemyContext.SetRivalGroupIDOfTarget(moralGroupMoved);
+            }
+        }
+
+        private void OnAllyLeavesGroup(AIAlly aiAlly)
+        {
+            MoralComponent moralComponent = aiAlly.GetMoralComponent();
+            uint originalMoralGroup = moralComponent.GetOriginalGroup();
+            uint currentMoralGroup = aiAlly.GetContext().GetCurrentGroup();
+            
+            uint allyCombatAgentInstance = aiAlly.GetCombatAgentInstance();
+            
+            List<MoralComponent> moralComponents = new List<MoralComponent>();
+
+            if (originalMoralGroup != currentMoralGroup)
+            {
+                moralComponents.Add(moralComponent);
+                MoveGivenMoralGroupToAnotherMoralGroup(moralComponents, currentMoralGroup, originalMoralGroup);
+                _alliesIDsInsideMoralGroup[currentMoralGroup].Remove(allyCombatAgentInstance);
+                _alliesIDsInsideMoralGroup[originalMoralGroup].Add(allyCombatAgentInstance);
+                aiAlly.SetCurrentMoralGroup(originalMoralGroup);
+                
+                UpdateGroupsInEnemyContext(allyCombatAgentInstance, originalMoralGroup);
+                
+                return;
+            }
+
+            List<uint> alliesIDs = new List<uint>();
+
+            foreach (uint allyID in _alliesIDsInsideMoralGroup[currentMoralGroup])
+            {
+                if (allyID == allyCombatAgentInstance)
+                {
+                    continue;
+                }
+                moralComponents.Add(_aiAllies[allyID].GetMoralComponent());
+                alliesIDs.Add(allyID);
+            }
+
+            if (moralComponents.Count == 0)
+            {
+                return;
+            }
+
+            uint lowestMoralGroup = FindLowestGroupID(moralComponents);
+            
+            MoveGivenMoralGroupToAnotherMoralGroup(moralComponents, currentMoralGroup, lowestMoralGroup);
+
+            foreach (uint allyID in alliesIDs)
+            {
+                _alliesIDsInsideMoralGroup[currentMoralGroup].Remove(allyID);
+                _alliesIDsInsideMoralGroup[lowestMoralGroup].Add(allyID);
+                _aiAllies[allyID].SetCurrentMoralGroup(lowestMoralGroup);
+                
+                UpdateGroupsInEnemyContext(allyID, lowestMoralGroup);
+            }
+        }
+
+        public void OnEnemyJoinEnemy(AIEnemy enemy, uint otherEnemyID)
         {
             AIEnemy otherEnemy = _aiEnemies[otherEnemyID];
 
-            if (aiEnemy.GetContext().GetRivalIndex() != otherEnemy.GetContext().GetRivalIndex())
+            if (enemy.GetContext().GetRivalID() != otherEnemy.GetContext().GetRivalID())
             {
                 return;
             }
             
-            _enemiesOfTheSameThreatGroupOverlappingTriggers[aiEnemy].Add(otherEnemyID);
+            _enemiesOfTheSameThreatGroupOverlappingTriggers[enemy.GetCombatAgentInstance()].Add(otherEnemyID);
 
-            uint aiEnemyThreatGroup = aiEnemy.GetThreatComponent().currentThreatGroup;
-            uint otherEnemyThreatGroup = otherEnemy.GetThreatComponent().currentThreatGroup;
+            uint enemyThreatGroup = enemy.GetThreatComponent().currentGroup;
+            uint otherEnemyThreatGroup = otherEnemy.GetThreatComponent().currentGroup;
 
-            if (aiEnemyThreatGroup < otherEnemyThreatGroup)
+            if (enemyThreatGroup < otherEnemyThreatGroup)
             {
-                MergeThreatGroups(otherEnemyThreatGroup, aiEnemyThreatGroup);
                 return;
             }
 
-            MergeThreatGroups(aiEnemyThreatGroup, otherEnemyThreatGroup);
+            MergeThreatGroups(enemyThreatGroup, otherEnemyThreatGroup);
         }
 
-        private void MergeOverlappingThreatGroupsWithSameTarget(AIEnemy enemy, uint rivalIndex)
+        private void MergeOverlappingGroupWithSameTarget<TAgent, TContext, TAttackComponent, TDamageComponent, TGroupComponent>(TAgent agent, 
+            uint groupID, Dictionary<uint, List<uint>> agentsOfTheSameGroupOverlappingTriggers, 
+            Dictionary<uint, TAgent> aiFactions, ref Dictionary<uint, KeyValuePair<TGroupComponent, VectorComponent>> factionGroups, 
+            Action<uint, uint> mergeGroupsAction)
+        
+            where TAgent : AICombatAgentEntity<TContext, TAttackComponent, TDamageComponent>
+            where TContext : AICombatAgentContext
+            where TAttackComponent : AttackComponent
+            where TDamageComponent : DamageComponent
+            where TGroupComponent : GroupComponent
         {
             List<uint> overlappingThreatGroupsWithSameTarget =
-                GetOverlappingThreatGroupsWithSameTarget(rivalIndex, enemy.GetOverlappingEnemies());
+                GetOverlappingGroupsWithSameTarget<TAgent, TContext, TAttackComponent, TDamageComponent>(groupID,
+                    agentsOfTheSameGroupOverlappingTriggers[agent.GetCombatAgentInstance()], aiFactions);
 
-            uint enemyOriginalThreatGroup = enemy.GetThreatComponent().GetOriginalThreatGroup();
+            uint agentOriginalThreatGroup = agent.GetGroupComponent().GetOriginalGroup();
             
             if (overlappingThreatGroupsWithSameTarget.Count == 0)
             {
-                _threatGroups[enemyOriginalThreatGroup].Key.groupTarget = rivalIndex;
+                factionGroups[agentOriginalThreatGroup].Key.SetGroupTarget(groupID);
                 return;
             }
             
-            overlappingThreatGroupsWithSameTarget.Add(enemyOriginalThreatGroup);
+            overlappingThreatGroupsWithSameTarget.Add(agentOriginalThreatGroup);
             
             overlappingThreatGroupsWithSameTarget.Sort();
 
-            _threatGroups[overlappingThreatGroupsWithSameTarget[0]].Key.groupTarget = rivalIndex;
+            factionGroups[overlappingThreatGroupsWithSameTarget[0]].Key.SetGroupTarget(groupID);
 
             for (int i = overlappingThreatGroupsWithSameTarget.Count - 1; i >= 1; i--)
             {
-                MergeThreatGroups(overlappingThreatGroupsWithSameTarget[i], 
+                mergeGroupsAction(overlappingThreatGroupsWithSameTarget[i],
                     overlappingThreatGroupsWithSameTarget[i - 1]);
             }
         }
 
-        private List<uint> GetOverlappingThreatGroupsWithSameTarget(uint targetID, List<uint> enemiesIDs)
+        private List<uint> GetOverlappingGroupsWithSameTarget<TAgent, TContext, TAttackComponent, TDamageComponent>(
+            uint targetID, List<uint> alliesIDs, Dictionary<uint, TAgent> aiFactions)
+        
+            where TAgent : AICombatAgentEntity<TContext, TAttackComponent, TDamageComponent>
+            where TContext : AICombatAgentContext
+            where TAttackComponent : AttackComponent
+            where TDamageComponent : DamageComponent
         {
-            List<uint> threatGroups = new List<uint>();
-            List<uint> threatGroupsChecked = new List<uint>();
+            List<uint> moralGroups = new List<uint>();
+            List<uint> moralGroupsChecked = new List<uint>();
 
-            foreach (uint enemyID in enemiesIDs)
+            foreach (uint allyID in alliesIDs)
             {
-                AIEnemy enemy = _aiEnemies[enemyID];
+                TAgent ally = aiFactions[allyID];
 
-                uint currentThreatGroup = enemy.GetContext().GetCurrentThreatGroup();
+                uint currentMoralGroup = ally.GetContext().GetCurrentGroup();
 
-                if (threatGroupsChecked.Contains(currentThreatGroup))
+                if (moralGroupsChecked.Contains(currentMoralGroup))
                 {
                     continue;
                 }
                 
-                threatGroupsChecked.Add(currentThreatGroup);
+                moralGroupsChecked.Add(currentMoralGroup);
                 
-                if (enemy.GetContext().GetRivalIndex() == targetID)
+                if (ally.GetContext().GetRivalID() == targetID)
                 {
                     continue;
                 }
                 
-                threatGroups.Add(currentThreatGroup);
+                moralGroups.Add(currentMoralGroup);
             }
 
-            return threatGroups;
+            return moralGroups;
         }
 
         private void MergeThreatGroups(uint threatGroupFromWhichTheyCome, uint threatGroupToMove)
         {
-            MoveWholeThreatGroupToAnotherThreatGroup(threatGroupFromWhichTheyCome, threatGroupToMove);
+            MoveAllThreatGroupToAnotherThreatGroup(threatGroupFromWhichTheyCome, threatGroupToMove);
 
-            for (int i = _enemiesIndexesInsideThreatGroup[threatGroupFromWhichTheyCome].Count - 1; i >= 0; i--)
+            for (int i = _enemiesIDsInsideThreatGroup[threatGroupFromWhichTheyCome].Count - 1; i >= 0; i--)
             {
-                uint enemyIndex = _enemiesIndexesInsideThreatGroup[threatGroupFromWhichTheyCome][i];
+                uint enemyID = _enemiesIDsInsideThreatGroup[threatGroupFromWhichTheyCome][i];
                 
-                _enemiesIndexesInsideThreatGroup[threatGroupFromWhichTheyCome].Remove(enemyIndex);
-                _enemiesIndexesInsideThreatGroup[threatGroupToMove].Add(enemyIndex);
-                _aiEnemies[enemyIndex].SetCurrentThreatGroup(threatGroupToMove);
+                _enemiesIDsInsideThreatGroup[threatGroupFromWhichTheyCome].Remove(enemyID);
+                _enemiesIDsInsideThreatGroup[threatGroupToMove].Add(enemyID);
+                _aiEnemies[enemyID].SetCurrentThreatGroup(threatGroupToMove);
             }
             
             UpdateThreatInAllyContext(threatGroupFromWhichTheyCome, threatGroupToMove);
@@ -762,7 +1103,7 @@ namespace Managers
         {
             AIEnemy otherEnemy = _aiEnemies[otherEnemyID];
             
-            _enemiesOfTheSameThreatGroupOverlappingTriggers[aiEnemy].Remove(otherEnemyID);
+            _enemiesOfTheSameThreatGroupOverlappingTriggers[aiEnemy.GetCombatAgentInstance()].Remove(otherEnemyID);
 
             List<AIEnemy> allContacts = GetAllContacts(aiEnemy);
 
@@ -773,22 +1114,21 @@ namespace Managers
                 threatComponents.Add(aiEnemyInContact.GetThreatComponent());
             }
 
-            uint lowestThreatGroup = FindLowestThreatGroupIndex(threatComponents);
-            uint otherThreatGroup = otherEnemy.GetThreatComponent().currentThreatGroup;
+            uint lowestThreatGroup = FindLowestGroupID(threatComponents);
+            uint otherThreatGroup = otherEnemy.GetThreatComponent().currentGroup;
 
             if (lowestThreatGroup == otherThreatGroup)
             {
                 return;
             }
 
-            MoveGivenThreatsToAnotherThreatGroup(threatComponents, otherThreatGroup,
-                lowestThreatGroup);
+            MoveGivenThreatsToAnotherThreatGroup(threatComponents, otherThreatGroup, lowestThreatGroup);
 
             foreach (AIEnemy enemy in allContacts)
             {
                 uint combatAgentInstance = enemy.GetCombatAgentInstance();
-                _enemiesIndexesInsideThreatGroup[otherThreatGroup].Remove(combatAgentInstance);
-                _enemiesIndexesInsideThreatGroup[lowestThreatGroup].Add(combatAgentInstance);
+                _enemiesIDsInsideThreatGroup[otherThreatGroup].Remove(combatAgentInstance);
+                _enemiesIDsInsideThreatGroup[lowestThreatGroup].Add(combatAgentInstance);
                 enemy.SetCurrentThreatGroup(lowestThreatGroup);
             }
 
@@ -799,36 +1139,38 @@ namespace Managers
         {
             foreach (AIAlly ally in _aiAllies.Values)
             {
-                if (ally.GetContext().GetThreatGroupOfTarget() != threatGroupFromWhichTheyCome)
+                uint rivalGroupIDOfTarget = ally.GetContext().GetRivalGroupIDOfTarget();
+                if (rivalGroupIDOfTarget != threatGroupFromWhichTheyCome && 
+                    rivalGroupIDOfTarget != threatGroupToMove)
                 {
                     continue;
                 }
 
-                ally.SetThreatGroupOfTarget(threatGroupToMove);
-                ally.SetThreatWeightOfTarget(_threatGroups[threatGroupToMove].Key.threatGroupWeight);
+                ally.SetRivalGroupIDOfTarget(threatGroupToMove);
+                ally.SetThreatWeightOfTarget(_threatGroups[threatGroupToMove].Key.groupWeight);
             }
         }
 
-        private List<AIEnemy> GetAllContacts(AIEnemy aiEnemy)
+        private List<AIEnemy> GetAllContacts(AIEnemy aiAgent)
         {
             List<AIEnemy> contacts = new List<AIEnemy>();
 
-            Stack<AIEnemy> aiEnemiesStack = new Stack<AIEnemy>();
-            aiEnemiesStack.Push(aiEnemy);
+            Stack<AIEnemy> aiAgentsStack = new Stack<AIEnemy>();
+            aiAgentsStack.Push(aiAgent);
 
-            while (aiEnemiesStack.Count > 0)
+            while (aiAgentsStack.Count > 0)
             {
-                AIEnemy currentEnemy = aiEnemiesStack.Pop();
+                AIEnemy currentAgent = aiAgentsStack.Pop();
 
-                contacts.Add(currentEnemy);
+                contacts.Add(currentAgent);
 
-                foreach (uint aiEnemyIDToCheck in _enemiesOfTheSameThreatGroupOverlappingTriggers[currentEnemy])
+                foreach (uint aiAgentIDToCheck in _enemiesOfTheSameThreatGroupOverlappingTriggers[currentAgent.GetCombatAgentInstance()])
                 {
-                    AIEnemy aiEnemyToCheck = _aiEnemies[aiEnemyIDToCheck];
+                    AIEnemy aiAgentToCheck = _aiEnemies[aiAgentIDToCheck];
                     
-                    if (!contacts.Contains(aiEnemyToCheck))
+                    if (!contacts.Contains(aiAgentToCheck))
                     {
-                        aiEnemiesStack.Push(aiEnemyToCheck);
+                        aiAgentsStack.Push(aiAgentToCheck);
                     }
                 }
             }
@@ -836,34 +1178,39 @@ namespace Managers
             return contacts;
         }
 
-        private uint FindLowestThreatGroupIndex(List<ThreatComponent> threatComponents)
+        private uint FindLowestGroupID<TStatComponent>(List<TStatComponent> statComponents)
+            where TStatComponent : IGroup
         {
-            uint lowestThreatGroupIndex = threatComponents[0].GetOriginalThreatGroup();
+            uint lowestGroupID = statComponents[0].GetOriginalGroup();
 
-            foreach (ThreatComponent threatComponent in threatComponents)
+            foreach (TStatComponent statComponent in statComponents)
             {
-                uint currentOriginalThreatGroupIndex = threatComponent.GetOriginalThreatGroup();
+                uint currentOriginalGroupIndex = statComponent.GetOriginalGroup();
 
-                if (lowestThreatGroupIndex < currentOriginalThreatGroupIndex)
+                if (lowestGroupID < currentOriginalGroupIndex)
                 {
                     continue;
                 }
 
-                lowestThreatGroupIndex = currentOriginalThreatGroupIndex;
+                lowestGroupID = currentOriginalGroupIndex;
             }
 
-            return lowestThreatGroupIndex;
+            return lowestGroupID;
         }
 
         private List<uint> GetPossibleRivals(List<uint> visibleRivals, List<uint> threatGroupsToAvoid, float moralWeight)
         {
+            List<uint> auxVisibleRivals = new List<uint>();
+            
+            auxVisibleRivals.AddRange(visibleRivals);
+            
             for (int i = visibleRivals.Count - 1; i >= 0; i--)
             {
                 uint enemyID = visibleRivals[i];
 
                 AIEnemyContext enemyContext = _aiEnemies[enemyID].GetContext();
 
-                if (!threatGroupsToAvoid.Contains(enemyContext.GetCurrentThreatGroup()))
+                if (!threatGroupsToAvoid.Contains(enemyContext.GetCurrentGroup()))
                 {
                     continue;
                 }
@@ -871,7 +1218,7 @@ namespace Managers
                 visibleRivals.RemoveAt(i);
             }
 
-            return visibleRivals;
+            return visibleRivals.Count == 0 ? auxVisibleRivals : visibleRivals;
         }
 
         private uint GetClosestRival<TAgent, TRivalContext, TRivalAttackComponent, TRivalDamageComponent>(
@@ -918,7 +1265,7 @@ namespace Managers
         {
             foreach (AIAlly ally in _aiAllies.Values)
             {
-                if (ally.GetContext().GetRivalIndex() != enemyAgentInstanceID)
+                if (ally.GetContext().GetRivalID() != enemyAgentInstanceID)
                 {
                     continue;
                 }
@@ -933,7 +1280,7 @@ namespace Managers
         {
             foreach (AIAlly ally in _aiAllies.Values)
             {
-                if (ally.GetContext().GetRivalIndex() != enemyAgentInstanceID)
+                if (ally.GetContext().GetRivalID() != enemyAgentInstanceID)
                 {
                     continue;
                 }
@@ -945,10 +1292,12 @@ namespace Managers
         public void OnEnemyDefeated(AIEnemy aiEnemy)
         {
             uint combatAgentInstance = aiEnemy.GetCombatAgentInstance();
-            
-            EraseThreat(combatAgentInstance, aiEnemy.GetThreatComponent(), aiEnemy.GetNavMeshAgentComponent().GetTransformComponent());
 
-            List<uint> enemiesOverlapping = _enemiesOfTheSameThreatGroupOverlappingTriggers[aiEnemy];
+            ThreatComponent threatComponent = aiEnemy.GetThreatComponent();
+            
+            EraseThreat(combatAgentInstance, threatComponent, aiEnemy.GetNavMeshAgentComponent().GetTransformComponent());
+
+            List<uint> enemiesOverlapping = _enemiesOfTheSameThreatGroupOverlappingTriggers[aiEnemy.GetCombatAgentInstance()];
 
             for (int i = enemiesOverlapping.Count - 1; i >= 0; i--)
             {
@@ -956,6 +1305,11 @@ namespace Managers
             }
 
             _aiEnemies.Remove(combatAgentInstance);
+            _enemiesIDsInsideThreatGroup.Remove(threatComponent.GetOriginalGroup());
+            _groupThreatsComponents.Remove(threatComponent.GetOriginalGroup());
+            _threatGroups.Remove(threatComponent.GetOriginalGroup());
+            
+            
             
             OnAgentDefeated<AIAlly, AIAllyContext, AllyAttackComponent, DamageComponent, 
                 AIEnemyContext, AttackComponent, AllyDamageComponent>(aiEnemy, ref _aiAllies);
@@ -976,7 +1330,7 @@ namespace Managers
         {
             foreach (TAgent agent in agents.Values)
             {
-                if (agent.GetContext().GetRivalIndex() != aiCombatAgentDefeated.GetCombatAgentInstance())
+                if (agent.GetContext().GetRivalID() != aiCombatAgentDefeated.GetCombatAgentInstance())
                 {
                     continue;
                 }
@@ -1004,7 +1358,7 @@ namespace Managers
         {
             if (attackComponent.IsOnCooldown())
             {
-                enemy.GetContext().SetIsAttacking(false);
+                enemy.NotAttacking();
                 return;
             }
             
@@ -1016,6 +1370,7 @@ namespace Managers
 
         private void PutAttackOnCooldown(AttackComponent attackComponent, AIEnemy enemy)
         {
+            enemy.NotAttacking();
             StartCoroutine(StartCooldownCoroutine(attackComponent, enemy));
         }
 
@@ -1025,21 +1380,122 @@ namespace Managers
 
         #region Moral System
 
-        private void IncreaseMoralLevel(ref MoralComponent firstMoralComponent, ref MoralComponent secondMoralComponent)
+        private void AddMoralGroup(uint combatAgentID, MoralComponent moralComponent,
+            TransformComponent transformComponent)
         {
-            firstMoralComponent.AddMinMoralWeight();
-            secondMoralComponent.AddMinMoralWeight();
+            uint moralGroupID = moralComponent.GetOriginalGroup();
+
+            List<uint> alliesIDs = new List<uint>
+            {
+                combatAgentID
+            };
+
+            List<MoralComponent> moralComponents = new List<MoralComponent>
+            {
+                moralComponent
+            };
+
+            List<TransformComponent> transformComponents = new List<TransformComponent>
+            {
+                transformComponent
+            };
+            
+            _alliesIDsInsideMoralGroup.Add(moralGroupID, alliesIDs);
+
+            foreach (AIAlly ally in _aiAllies.Values)
+            {
+                ally.AddGroupToHelp(moralGroupID);
+            }
+
+            _groupMoralsComponents.Add(moralGroupID,
+                new KeyValuePair<List<MoralComponent>, List<TransformComponent>>(moralComponents, transformComponents));
+
+            MoralGroupComponent moralGroupComponent = new MoralGroupComponent(0);
+            VectorComponent vectorComponent = new VectorComponent(new Vector3());
+            
+            _moralGroups.Add(moralGroupID, 
+                new KeyValuePair<MoralGroupComponent, VectorComponent>(moralGroupComponent, vectorComponent));
+
+            _moralGroups[moralGroupID].Key.groupWeight = moralComponent.GetWeight();
         }
 
-        private void DecreaseMoralLevel(ref MoralComponent firstMoralComponent, ref MoralComponent secondMoralComponent)
+        private void EraseMoralGroup(uint combatAgentID, MoralComponent moralComponent, TransformComponent transformComponent)
         {
-            firstMoralComponent.SubtractMinMoralWeight();
-            secondMoralComponent.SubtractMinMoralWeight();
+            uint originalGroup = moralComponent.GetOriginalGroup();
+            uint currentGroup = moralComponent.GetCurrentGroup();
+
+            _alliesIDsInsideMoralGroup[currentGroup].Remove(combatAgentID);
+            _moralGroups[currentGroup].Key.groupWeight -= moralComponent.GetWeight();
+            _groupMoralsComponents[currentGroup].Key.Remove(moralComponent);
+            _groupMoralsComponents[currentGroup].Value.Remove(transformComponent);
+
+            _groupMoralsComponents.Remove(originalGroup);
         }
 
-        private bool EvaluateConfrontation(IStatWeight moralComponent, IStatWeight threatComponent)
+        private void MoveAllMoralGroupToAnotherMoralGroup(uint moralGroupFromWhichTheyCome, uint moralGroupToMove)
         {
-            return moralComponent.GetWeight() > threatComponent.GetWeight();
+            for (int i = 0; i < _groupMoralsComponents[moralGroupFromWhichTheyCome].Key.Count; i++)
+            {
+                MoveSingleMoralComponentToAnotherMoralGroup(_groupMoralsComponents[moralGroupFromWhichTheyCome].Key[i], 
+                    moralGroupFromWhichTheyCome, moralGroupToMove);
+            }
+        }
+
+        private void MoveGivenMoralGroupToAnotherMoralGroup(List<MoralComponent> moralComponentsToMove, 
+            uint moralGroupFromWhichTheyCome, uint moralGroupToMove)
+        {
+            foreach (MoralComponent moralComponent in moralComponentsToMove)
+            {
+                MoveSingleMoralComponentToAnotherMoralGroup(moralComponent, moralGroupFromWhichTheyCome, moralGroupToMove);
+            }
+        }
+
+        private void MoveSingleMoralComponentToAnotherMoralGroup(MoralComponent moralComponent, uint moralGroupFromWhichComes, 
+            uint moralGroupToMove)
+        {
+            int moralComponentListIndex = _groupMoralsComponents[moralGroupFromWhichComes].Key.IndexOf(moralComponent);
+
+            if (moralComponentListIndex == -1)
+            {
+                return;
+            }
+            
+            MoveMoralComponentToMoralGroup(_groupMoralsComponents[moralGroupFromWhichComes].Key[moralComponentListIndex],
+                moralGroupFromWhichComes, moralGroupToMove);
+                    
+            MoveTransformComponentToMoralGroup(_groupMoralsComponents[moralGroupFromWhichComes].Value[moralComponentListIndex],
+                moralGroupFromWhichComes, moralGroupToMove);
+        }
+
+        private void MoveGroupComponentToGroup<TStatComponent>(TStatComponent statComponent, uint groupFromWhichTheyCome,
+            uint groupToMove, ref Dictionary<uint, KeyValuePair<List<TStatComponent>, List<TransformComponent>>> groupStatComponents,
+            Dictionary<uint, KeyValuePair<GroupComponent, VectorComponent>> factionGroups)
+        
+            where TStatComponent : IStatWeight
+        {
+            groupStatComponents[groupFromWhichTheyCome].Key.Remove(statComponent);
+            factionGroups[groupFromWhichTheyCome].Key.groupWeight -= statComponent.GetWeight();
+            
+            
+        }
+
+        private void MoveMoralComponentToMoralGroup(MoralComponent moralComponent, uint moralGroupFromWhichTheyCome, 
+            uint moralGroupToMove)
+        {
+            _groupMoralsComponents[moralGroupFromWhichTheyCome].Key.Remove(moralComponent);
+            _moralGroups[moralGroupFromWhichTheyCome].Key.groupWeight -= moralComponent.GetWeight();
+            
+            moralComponent.currentGroup = moralGroupToMove;
+            _groupMoralsComponents[moralGroupToMove].Key.Add(moralComponent);
+            _moralGroups[moralGroupToMove].Key.groupWeight += moralComponent.GetWeight();
+        }
+
+        private void MoveTransformComponentToMoralGroup(TransformComponent transformComponent, 
+            uint moralGroupFromWhichTheyCome, uint moralGroupToMove)
+        {
+            _groupMoralsComponents[moralGroupFromWhichTheyCome].Value.Remove(transformComponent);
+            
+            _groupMoralsComponents[moralGroupToMove].Value.Add(transformComponent);
         }
 
         #endregion
@@ -1050,6 +1506,11 @@ namespace Managers
         {
             for (uint i = 1; i < _groupThreatsComponents.Count + 1; i++)
             {
+                if (!_groupThreatsComponents.ContainsKey(i))
+                {
+                    continue;
+                }
+                
                 List<TransformComponent> transformComponents = _groupThreatsComponents[i].Value;
                 if (transformComponents.Count == 0)
                 {
@@ -1076,7 +1537,7 @@ namespace Managers
 
         private void UpdateThreatGroupsRadius()
         {
-            foreach (KeyValuePair<uint, List<uint>> enemiesInsideThreatGroup in _enemiesIndexesInsideThreatGroup)
+            foreach (KeyValuePair<uint, List<uint>> enemiesInsideThreatGroup in _enemiesIDsInsideThreatGroup)
             {
                 List<uint> enemiesIDs = enemiesInsideThreatGroup.Value;
 
@@ -1116,13 +1577,13 @@ namespace Managers
             }
         }
 
-        private void AddThreat(uint combatAgentIndex, ThreatComponent threatComponent, TransformComponent transformComponent)
+        private void AddThreat(uint combatAgentID, ThreatComponent threatComponent, TransformComponent transformComponent)
         {
-            uint threatGroup = threatComponent.GetOriginalThreatGroup();
+            uint threatGroupID = threatComponent.GetOriginalGroup();
 
-            List<uint> enemiesIndexes = new List<uint>
+            List<uint> enemiesIDs = new List<uint>
             {
-                combatAgentIndex
+                combatAgentID
             };
             
             List<ThreatComponent> threatComponents = new List<ThreatComponent>
@@ -1135,34 +1596,31 @@ namespace Managers
                 transformComponent
             };
             
-            _enemiesIndexesInsideThreatGroup.Add(threatGroup, enemiesIndexes);
+            _enemiesIDsInsideThreatGroup.Add(threatGroupID, enemiesIDs);
             
-            _groupThreatsComponents.Add(threatGroup, 
+            _groupThreatsComponents.Add(threatGroupID, 
                 new KeyValuePair<List<ThreatComponent>, List<TransformComponent>>(threatComponents, transformComponents));
 
             ThreatGroupComponent threatGroupComponent = new ThreatGroupComponent(0);
             VectorComponent vectorComponent = new VectorComponent(new Vector3());
             
-            _threatGroups.Add(threatGroup, 
+            _threatGroups.Add(threatGroupID, 
                 new KeyValuePair<ThreatGroupComponent, VectorComponent>(threatGroupComponent, vectorComponent));
             
-            _threatGroups[threatGroup].Key.threatGroupWeight = threatComponent.GetWeight();
+            _threatGroups[threatGroupID].Key.groupWeight = threatComponent.GetWeight();
         }
 
-        private void EraseThreat(uint combatAgentInstance, ThreatComponent threatComponent, TransformComponent transformComponent)
+        private void EraseThreat(uint combatAgentID, ThreatComponent threatComponent, TransformComponent transformComponent)
         {
-            uint originalThreatGroup = threatComponent.GetOriginalThreatGroup();
-            uint currentThreatGroup = threatComponent.GetCurrentGroup();
+            uint currentGroup = threatComponent.GetCurrentGroup();
 
-            _enemiesIndexesInsideThreatGroup[currentThreatGroup].Remove(combatAgentInstance);
-            _threatGroups[currentThreatGroup].Key.threatGroupWeight -= threatComponent.GetWeight();
-            _groupThreatsComponents[currentThreatGroup].Key.Remove(threatComponent);
-            _groupThreatsComponents[currentThreatGroup].Value.Remove(transformComponent);
-
-            _groupThreatsComponents.Remove(originalThreatGroup);
+            _enemiesIDsInsideThreatGroup[currentGroup].Remove(combatAgentID);
+            _threatGroups[currentGroup].Key.groupWeight -= threatComponent.GetWeight();
+            _groupThreatsComponents[currentGroup].Key.Remove(threatComponent);
+            _groupThreatsComponents[currentGroup].Value.Remove(transformComponent);
         }
 
-        private void MoveWholeThreatGroupToAnotherThreatGroup(uint threatGroupFromWhichTheyCome, uint threatGroupToMove)
+        private void MoveAllThreatGroupToAnotherThreatGroup(uint threatGroupFromWhichTheyCome, uint threatGroupToMove)
         {
             for (int i = 0; i < _groupThreatsComponents[threatGroupFromWhichTheyCome].Key.Count; i++)
             {
@@ -1201,13 +1659,11 @@ namespace Managers
             uint threatGroupToMove)
         {
             _groupThreatsComponents[threatGroupFromWhichTheyCome].Key.Remove(threatComponent);
-            _threatGroups[threatGroupFromWhichTheyCome].Key.threatGroupWeight -=
-                threatComponent.GetWeight();
+            _threatGroups[threatGroupFromWhichTheyCome].Key.groupWeight -= threatComponent.GetWeight();
             
-            threatComponent.currentThreatGroup = threatGroupToMove;
+            threatComponent.currentGroup = threatGroupToMove;
             _groupThreatsComponents[threatGroupToMove].Key.Add(threatComponent);
-            _threatGroups[threatGroupToMove].Key.threatGroupWeight +=
-                threatComponent.GetWeight();
+            _threatGroups[threatGroupToMove].Key.groupWeight += threatComponent.GetWeight();
         }
 
         private void MoveTransformComponentToThreatGroup(TransformComponent transformComponent, 
@@ -1414,7 +1870,7 @@ namespace Managers
                 }
                 
                 shortestDistance = distance;
-                closestPoint = closestPointOnEdge + (new Vector2(-direction.y, direction.x) * (radius * 1.5f));
+                closestPoint = closestPointOnEdge + (new Vector2(direction.y, -direction.x).normalized * (radius * 1.5f));
             }
 
             return closestPoint;

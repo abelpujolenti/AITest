@@ -4,10 +4,10 @@ namespace ECS.Components.AI.Combat
 {
     public class MoralComponent : IStatWeight, IGroup
     {
-        private static uint _globalMoralIndex = 0;
+        private static uint _globalMoralIndex = 1;
         
         private const float MIN_MORAL_WEIGHT = 0;
-        private const float MAX_MORAL_WEIGHT = 1;
+        private const float MAX_MORAL_WEIGHT = 100;
         
         private float _moralWeight;
 
@@ -22,30 +22,14 @@ namespace ECS.Components.AI.Combat
             _globalMoralIndex++;
         }
 
+        public void SetMoralWeight(float moralWeight)
+        {
+            _moralWeight = moralWeight;
+        }
+
         public float GetWeight()
         {
             return _moralWeight;
-        }
-
-        public void AddMinMoralWeight()
-        {
-            AddToMoralWeight(MIN_MORAL_WEIGHT);
-        }
-
-        public void SubtractMinMoralWeight()
-        {
-            AddToMoralWeight(-MIN_MORAL_WEIGHT);
-        }
-
-        private void AddToMoralWeight(float moralToAdd)
-        {
-            float temporaryMoral = _moralWeight + moralToAdd;
-            if (temporaryMoral < MIN_MORAL_WEIGHT || temporaryMoral > MAX_MORAL_WEIGHT)
-            {
-                return;
-            }
-
-            _moralWeight = temporaryMoral;
         }
 
         public uint GetOriginalGroup()

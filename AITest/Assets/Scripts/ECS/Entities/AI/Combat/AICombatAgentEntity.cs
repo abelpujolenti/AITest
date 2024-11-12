@@ -39,12 +39,10 @@ namespace ECS.Entities.AI.Combat
 
         private Coroutine _updateCoroutine;
 
-        protected float _stoppingDistance = 7;
-
         protected float _minimumRangeToCastAnAttack;
         protected float _maximumRangeToCastAnAttack;
         
-        protected void StartUpdate()
+        protected virtual void StartUpdate()
         {
             if (_updateCoroutine != null)
             {
@@ -53,7 +51,7 @@ namespace ECS.Entities.AI.Combat
             _updateCoroutine = StartCoroutine(UpdateCoroutine());
         }
 
-        protected void StopUpdate()
+        protected virtual void StopUpdate()
         {
             StopCoroutine(_updateCoroutine);
             _updateCoroutine = null;
@@ -61,23 +59,7 @@ namespace ECS.Entities.AI.Combat
 
         protected override IEnumerator RotateToGivenPositionCoroutine(Vector3 position)
         {
-            Transform ownTransform = transform;
-            
-            Vector3 vectorToNextPathCorner = position - ownTransform.position;
-            vectorToNextPathCorner.y = 0;
-            do
-            {
-                Quaternion rotation = Quaternion.LookRotation(vectorToNextPathCorner);
-                transform.rotation = Quaternion.Slerp(ownTransform.rotation, rotation, _rotationSpeed * Time.deltaTime);
-                yield return null;
-                
-            } while (Vector3.Angle(transform.forward, vectorToNextPathCorner) >= 15f);
-
-            _isRotating = false;
-            
-            GetContext().SetIsAttacking(false);
-            
-            ContinueNavigation();
+            yield return base.RotateToGivenPositionCoroutine(position);
         }
 
         protected abstract IEnumerator UpdateCoroutine();
@@ -190,6 +172,18 @@ namespace ECS.Entities.AI.Combat
             return selectedAttackComponent;
         }
 
+        protected void Attacking()
+        {
+            _context.SetIsAttacking(true);
+            _navMeshAgent.isStopped = true;
+        }
+
+        public void NotAttacking()
+        {
+            _context.SetIsAttacking(false);
+            _navMeshAgent.isStopped = false;
+        }
+
         public virtual void OnAttackAvailableAgain(TAttackComponent attackComponent)
         {
             float attackMinimumRangeToCast = attackComponent.GetMinimumRangeCast();
@@ -208,6 +202,71 @@ namespace ECS.Entities.AI.Combat
             _context.SetMaximumRangeToAttack(attackMaximumRangeToCast);
         }
 
+        public void SetLastActionIndex(uint lastActionIndex)
+        {
+            _context.SetLastActionIndex(lastActionIndex);
+        }
+
+        public void SetHealth(uint health)
+        {
+            _context.SetHealth(health);
+        }
+
+        public void SetRivalIndex(uint rivalIndex)
+        {
+            _context.SetRivalIndex(rivalIndex);
+        }
+
+        public void SetRivalGroupIDOfTarget(uint rivalGroupIDOfTarget)
+        {
+            _context.SetRivalGroupIDOfTarget(rivalGroupIDOfTarget);
+        }
+
+        public void SetRivalRadius(float rivalRadius)
+        {
+            _context.SetRivalRadius(rivalRadius);
+        }
+
+        public void SetDistanceToRival(float distanceToRival)
+        {
+            _context.SetDistanceToRival(distanceToRival);
+        }
+
+        public void SetIsSeeingARival(bool isSeeingARival)
+        {
+            _context.SetIsSeeingARival(isSeeingARival);
+        }
+
+        public void SetHasATarget(bool hasATarget)
+        {
+            _context.SetHasATarget(hasATarget);
+        }
+
+        public void SetIsFighting(bool isFighting)
+        {
+            _context.SetIsFighting(isFighting);
+        }
+
+        public void SetIsAttacking(bool isAttacking)
+        {
+            _context.SetIsAttacking(isAttacking);
+        }
+
+        public void SetIsAirborne(bool isAirborne)
+        {
+            _context.SetIsAirborne(isAirborne);
+        }
+
+        public void SetVectorToRival(Vector3 vectorToRival)
+        {
+            _context.SetVectorToRival(vectorToRival);
+        }
+
+        public void SetRivalTransform(Transform rivalTransform)
+        {
+            _context.SetRivalTransform(rivalTransform);
+        }
+
         protected abstract void UpdateVisibleRivals();
         protected abstract void CalculateBestAction();
 
@@ -216,22 +275,6 @@ namespace ECS.Entities.AI.Combat
         public abstract AIAgentType GetAIAgentType();
         
         public abstract TContext GetContext();
-
-        public abstract void SetLastActionIndex(uint lastActionIndex);
-        public abstract void SetHealth(uint health);
-        public abstract void SetRivalIndex(uint rivalIndex);
-
-        public abstract void SetRivalRadius(float rivalRadius);
-        public abstract void SetDistanceToRival(float rivalDistance);
-        
-        public abstract void SetIsSeeingARival(bool isSeeingARival);
-        public abstract void SetHasATarget(bool hasATarget);
-        public abstract void SetIsFighting(bool isFighting);
-        public abstract void SetIsAttacking(bool isAttacking);
-
-        public abstract void SetVectorToRival(Vector3 vectorToRival);
-
-        public abstract void SetRivalTransform(Transform rivalTransform);
 
         public abstract IStatWeight GetStatWeightComponent();
 

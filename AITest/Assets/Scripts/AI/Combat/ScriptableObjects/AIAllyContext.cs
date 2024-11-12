@@ -8,12 +8,13 @@ namespace AI.Combat.ScriptableObjects
 {
     public class AIAllyContext : AICombatAgentContext, IAllyFollowPlayerUtility, IAllyChooseNewRivalUtility,
         IAllyGetCloserToRivalUtility, IAllyAttackUtility, IAllyFleeUtility, IAllyDodgeAttackUtility, 
-        IAllyHelpAllyUtility, IEnemyStunned
+        IAllyHelpAnotherMoralGroupUtility, IAllyHelpAIAllyUtility, IEnemyStunned
     {
         private uint _oncomingAttackDamage;
         private uint _enemyHealth;
-        private uint _threatGroupOfTarget = 0;
 
+        private float _remainingDistance;
+        private float _stoppingDistance;
         private float _height;
         private float _moralWeight;
         private float _radiusOfAlert;
@@ -26,23 +27,26 @@ namespace AI.Combat.ScriptableObjects
         private bool _isEnemyStunned;
         private bool _isUnderThreat;
         private bool _isUnderAttack;
-        private bool _isAnotherAllyUnderThreat;
+        private bool _isAnotherMoralGroupUnderThreat;
         private bool _isAirborne;
         private bool _wasRetreatOrderUsed;
         private bool _wasAttackOrderUsed;
         private bool _wasFleeOrderUsed;
 
-        private List<float> _distancesToThreatGroupsThatThreatMe;
-        private uint[] _threatGroupsThatFightAllies;
+        private List<float> _distancesToThreatGroupsThatThreatMe = new List<float>();
+        private Dictionary<uint, float> _groupsPriorityToHelp = new Dictionary<uint, float>();
 
-        public AIAllyContext(uint totalHealth, float radius, float sightMaximumDistance, float minimumRangeToAttack, 
-            float maximumRangeToAttack, Transform agentTransform, float height, float moralWeight, float radiusOfAlert) : 
-            base(totalHealth, radius, sightMaximumDistance, minimumRangeToAttack, maximumRangeToAttack, agentTransform)
+        public AIAllyContext(uint totalHealth, uint currentGroup, float radius, float sightMaximumDistance, 
+            float minimumRangeToAttack, float maximumRangeToAttack, Transform agentTransform, float stoppingDistance, 
+            float height, float moralWeight, float radiusOfAlert) : base(totalHealth, currentGroup, radius, 
+            sightMaximumDistance, minimumRangeToAttack, maximumRangeToAttack, agentTransform)
         {
             _repeatableActions.Add((uint)AIAllyAction.CHOOSE_NEW_RIVAL);
             _repeatableActions.Add((uint)AIAllyAction.ROTATE);
+            _repeatableActions.Add((uint)AIAllyAction.DODGE_ATTACK);
             _repeatableActions.Add((uint)AIAllyAction.ATTACK);
 
+            _stoppingDistance = stoppingDistance;
             _height = height;
             _moralWeight = moralWeight;
             _radiusOfAlert = radiusOfAlert;
@@ -58,14 +62,24 @@ namespace AI.Combat.ScriptableObjects
             return _enemyHealth;
         }
 
-        public void SetThreatGroupOfTarget(uint threatGroupOfTarget)
+        public void SetStoppingDistance(float stoppingDistance)
         {
-            _threatGroupOfTarget = threatGroupOfTarget;
+            _stoppingDistance = stoppingDistance;
         }
 
-        public uint GetThreatGroupOfTarget()
+        public void SetRemainingDistance(float remainingDistance)
         {
-            return _threatGroupOfTarget;
+            _remainingDistance = remainingDistance;
+        }
+
+        public float GetRemainingDistance()
+        {
+            return _remainingDistance;
+        }
+
+        public float GetStoppingDistance()
+        {
+            return _stoppingDistance;
         }
 
         public float GetHeight()
@@ -178,14 +192,14 @@ namespace AI.Combat.ScriptableObjects
             return _oncomingAttackDamage;
         }
 
-        public void SetIsAnotherAllyUnderThreat(bool isAnotherAllyUnderThreat)
+        public void SetIsAnotherMoralGroupUnderThreat(bool isAnotherMoralGroupUnderThreat)
         {
-            _isAnotherAllyUnderThreat = isAnotherAllyUnderThreat;
+            _isAnotherMoralGroupUnderThreat = isAnotherMoralGroupUnderThreat;
         }
 
-        public bool IsAnotherAllyUnderThreat()
+        public bool IsAnotherMoralGroupUnderThreat()
         {
-            return _isAnotherAllyUnderThreat;
+            return _isAnotherMoralGroupUnderThreat;
         }
 
         public void SetIsAirborne(bool isAirborne)
@@ -238,14 +252,24 @@ namespace AI.Combat.ScriptableObjects
             return _distancesToThreatGroupsThatThreatMe;
         }
 
-        public void SetThreatGroupsThatFightAllies(uint[] threatGroupsThatFightAllies)
+        public void AddGroupToHelp(uint groupID)
         {
-            _threatGroupsThatFightAllies = threatGroupsThatFightAllies;
+            _groupsPriorityToHelp.Add(groupID, 0);
         }
 
-        public uint[] GetThreatGroupsThatFightAllies()
+        public void RemoveGroupToHelp(uint groupID)
         {
-            return _threatGroupsThatFightAllies;
+            _groupsPriorityToHelp.Remove(groupID);
+        }
+
+        public void SetGroupHelpPriority(uint groupID, float helpPriority)
+        {
+            _groupsPriorityToHelp[groupID] = helpPriority;
+        }
+
+        public Dictionary<uint, float> GetGroupsHelpPriority()
+        {
+            return _groupsPriorityToHelp;
         }
 
         public override float GetWeight()

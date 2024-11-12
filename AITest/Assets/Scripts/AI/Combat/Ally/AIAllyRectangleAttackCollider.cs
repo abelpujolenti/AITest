@@ -1,18 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
 using ECS.Components.AI.Combat;
 using ECS.Entities.AI.Combat;
+using Managers;
 using UnityEngine;
 
 namespace AI.Combat.Ally
 {
-    public class AIAllyRectangleAttackCollider : AIAttackCollider
+    public class AIAllyRectangleAttackCollider : AIAllyAttackCollider
     {
         private AllyRectangleAttackComponent _rectangleAttackComponent; 
 
         private BoxCollider _boxCollider;
-
-        private List<AIEnemy> _combatAgentsTriggering = new List<AIEnemy>();
 
         protected override void OnEnable()
         {
@@ -32,11 +30,6 @@ namespace AI.Combat.Ally
             transform.parent = null;
         }
 
-        protected override void OnDisable()
-        {
-            _combatAgentsTriggering.Clear();
-        }
-
         private void Rotate()
         {
             transform.rotation = 
@@ -51,6 +44,8 @@ namespace AI.Combat.Ally
 
         public void SetRectangleAttackComponent(AllyRectangleAttackComponent rectangleAttackComponent)
         {
+            _allyID = rectangleAttackComponent.GetAllyID();
+            
             _boxCollider = gameObject.AddComponent<BoxCollider>();
             _boxCollider.isTrigger = true;
             
@@ -94,6 +89,8 @@ namespace AI.Combat.Ally
             {
                 return;
             }
+            
+            CombatManager.Instance.CheckEnemyThreatGroup(_allyID, targetEnemy.GetContext().GetCurrentGroup());
             
             _combatAgentsTriggering.Add(targetEnemy);
         }

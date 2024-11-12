@@ -1,4 +1,5 @@
 using ECS.Entities.AI.Combat;
+using Managers;
 using UnityEngine;
 
 namespace AI.Combat.Enemy
@@ -9,17 +10,24 @@ namespace AI.Combat.Enemy
 
         private void OnTriggerEnter(Collider other)
         {
-            _aiEnemy.AddOverlappingEnemyID(other.GetComponent<EnemyDetectionZone>().GetAIEnemy().GetCombatAgentInstance());
+            CombatManager.Instance.OnEnemyJoinEnemy(_aiEnemy, other.GetComponent<EnemyDetectionZone>().GetAIEnemy().GetCombatAgentInstance());
         }
 
         private void OnTriggerExit(Collider other)
         {
-            _aiEnemy.RemoveOverlappingEnemy(other.GetComponent<EnemyDetectionZone>().GetAIEnemy().GetCombatAgentInstance());
+            CombatManager.Instance.OnEnemySeparateFromEnemy(_aiEnemy, other.GetComponent<EnemyDetectionZone>().GetAIEnemy().GetCombatAgentInstance());
         }
 
         private AIEnemy GetAIEnemy()
         {
             return _aiEnemy;
+        }
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = Color.red;
+            
+            Gizmos.DrawWireSphere(transform.position, 8);
         }
     }
 }
